@@ -23,9 +23,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <body
         className={`${outfit.variable} ${jetbrainsMono.variable} antialiased bg-zinc-950 text-zinc-100 min-h-screen relative`}
+        suppressHydrationWarning
       >
         {/* Global Dynamic Background Effects */}
         <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
