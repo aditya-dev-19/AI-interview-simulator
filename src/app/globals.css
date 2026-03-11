@@ -127,3 +127,24 @@
     @apply font-sans;
   }
 }
+
+@keyframes talk {
+  0% { height: 6px; border-radius: 8px; width: 64px; transform: scaleY(1); }
+  30% { height: 28px; border-radius: 16px; width: 44px; transform: scaleY(1.1); }
+  60% { height: 12px; border-radius: 10px; width: 56px; transform: scaleY(0.9); }
+  100% { height: 22px; border-radius: 14px; width: 48px; transform: scaleY(1.05); }
+}
+
+@keyframes process {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-4px) scale(1.05); }
+}
+
+@layer utilities {
+  .animate-talk {
+    animation: talk 0.3s infinite alternate ease-in-out;
+  }
+  .animate-process {
+    animation: process 1s infinite ease-in-out;
+  }
+}
