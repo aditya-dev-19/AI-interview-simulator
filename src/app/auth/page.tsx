@@ -170,8 +170,8 @@ export default function AuthView() {
 
         {/* OAuth Buttons */}
         <div className="grid grid-cols-2 gap-4 relative z-10">
-          <button suppressHydrationWarning 
-            type="button" 
+          <button suppressHydrationWarning
+            type="button"
             onClick={async () => {
               await supabase.auth.signInWithOAuth({
                 provider: "github",
@@ -184,8 +184,8 @@ export default function AuthView() {
           >
             <Github className="w-4 h-4 text-white" /> GitHub
           </button>
-          <button suppressHydrationWarning 
-            type="button" 
+          <button suppressHydrationWarning
+            type="button"
             onClick={async () => {
               await supabase.auth.signInWithOAuth({
                 provider: "google",
