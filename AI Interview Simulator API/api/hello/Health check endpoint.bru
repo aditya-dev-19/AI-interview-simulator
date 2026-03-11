@@ -1,0 +1,46 @@
+meta {
+  name: Health check endpoint
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/hello
+  body: none
+  auth: inherit
+}
+
+vars:pre-request {
+  baseUrl: localhost:3000
+}
+
+example {
+  name: 200 Response
+  description: Successful response
+  
+  request: {
+    url: {{baseUrl}}/api/hello
+    method: GET
+    mode: none
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 200
+      text: OK
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "message": ""
+        }
+      '''
+    }
+  }
+}

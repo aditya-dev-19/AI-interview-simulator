@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "AI Interview Simulator API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

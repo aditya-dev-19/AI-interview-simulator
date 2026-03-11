@@ -1,58 +1,45 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Sparkles, Mail, Github } from 'lucide-react';
 
-export default function LandingPage() {
+export default function AuthView({ onLogin }: { onLogin: () => void }) {
   const [isLogin, setIsLogin] = useState(true);
-  const router = useRouter();
 
   // Form submission handler to prevent page reload and transition to dashboard
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    router.push('/dashboard');
+    onLogin();
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 px-4 animate-in fade-in duration-700 relative overflow-hidden">
-      
-      {/* Global Dynamic Background Effects for Landing Page */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Grid Pattern */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
-        
-        {/* Glowing Orbs */}
-        <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-emerald-500/20 blur-[120px] rounded-full mix-blend-screen pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-emerald-900/30 blur-[150px] rounded-full mix-blend-screen pointer-events-none" />
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 px-4 animate-in fade-in duration-700">
 
       {/* Brand Header */}
-      <div className="flex flex-col items-center gap-4 mb-8 relative z-10">
-        <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/50 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-          <Sparkles className="w-8 h-8 text-emerald-400" />
+      <div className="flex items-center gap-3 mb-8">
+        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
+          <Sparkles className="w-6 h-6 text-emerald-400" />
         </div>
-        <h1 className="text-3xl font-bold tracking-tight text-white">Interview<span className="text-emerald-400">Pro</span></h1>
-        <p className="text-zinc-400 text-sm">Ace your next tech interview with AI.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-white">AI Interview Pro</h1>
       </div>
 
       {/* Auth Card */}
-      <div className="w-full max-w-[420px] bg-[#0c0c0e]/90 backdrop-blur-xl border border-zinc-800/80 rounded-3xl p-8 shadow-2xl relative overflow-hidden z-10">
+      <div className="w-full max-w-[420px] bg-[#0c0c0e] border border-zinc-800/80 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
 
-        {/* Subtle background glow inside card */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-emerald-500/10 blur-[50px] pointer-events-none"></div>
+        {/* Subtle background glow */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-emerald-500/5 blur-[50px] pointer-events-none"></div>
 
         {/* Tab Switcher */}
         <div className="flex p-1 bg-zinc-900/80 rounded-xl mb-8 border border-zinc-800/50 relative z-10">
           <button
             onClick={() => setIsLogin(true)}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${isLogin ? 'bg-[#18181b] text-white shadow-sm border border-zinc-700' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${isLogin ? 'bg-[#18181b] text-white shadow-sm border border-zinc-800/50' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             Login
           </button>
           <button
             onClick={() => setIsLogin(false)}
-            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${!isLogin ? 'bg-[#18181b] text-white shadow-sm border border-zinc-700' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${!isLogin ? 'bg-[#18181b] text-white shadow-sm border border-zinc-800/50' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             Sign Up
           </button>
