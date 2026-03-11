@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Sparkles, ArrowRight } from 'lucide-react';
+import { FileText, Sparkles, ArrowRight, X, AlertCircle } from 'lucide-react';
 import { callGemini } from '../../lib/gemini';
 
 interface SetupViewProps {
@@ -11,6 +11,15 @@ export function SetupView({ onStart, onCancel }: SetupViewProps) {
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("We are looking for a Senior Frontend Engineer to join our core product team. You should have 4+ years of experience with React, Next.js, and Tailwind CSS. Experience with WebSockets and real-time audio/video is a huge plus.");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showError, setShowError] = useState(false);
+
+  const handleBeginInterview = () => {
+    if (!jobDescription || jobDescription.trim() === "") {
+      setShowError(true);
+      return;
+    }
+    onStart();
+  };
 
   const handleGenerateJD = async () => {
     setIsGenerating(true);
@@ -23,7 +32,41 @@ export function SetupView({ onStart, onCancel }: SetupViewProps) {
   };
 
   return (
-    <div className="p-10 max-w-4xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-300">
+    <div className="relative p-10 max-w-4xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-300">
+      {/* ERROR MODAL PORTAL */}
+      {showError && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#0c0c0e] border border-zinc-800/80 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center p-4 border-b border-zinc-800/80">
+              <h3 className="text-white font-semibold">Error</h3>
+              <button onClick={() => setShowError(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Modal Body */}
+            <div className="p-8 flex flex-col items-center text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 mb-2">
+                <AlertCircle className="w-8 h-8 text-red-500" />
+              </div>
+              <p className="text-zinc-300 font-medium leading-snug">Job description cannot be empty. Please paste a JD or generate one.</p>
+            </div>
+            
+            {/* Modal Footer */}
+            <div className="p-4 border-t border-zinc-800/80 flex justify-end">
+              <button 
+                onClick={() => setShowError(false)} 
+                className="bg-red-500 hover:bg-red-400 text-white px-6 py-2 rounded-xl font-bold transition-colors shadow-[0_0_15px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div>
         <h2 className="text-3xl font-bold text-white mb-2">Configure Your Session</h2>
         <p className="text-zinc-400">Provide context so the AI can tailor the interview questions accurately.</p>
@@ -92,7 +135,7 @@ export function SetupView({ onStart, onCancel }: SetupViewProps) {
 
       <div className="flex items-center justify-end gap-4 pt-6 border-t border-zinc-800/60">
         <button onClick={onCancel} className="px-6 py-2.5 rounded-xl font-medium text-zinc-400 hover:text-white transition-colors">Cancel</button>
-        <button onClick={onStart} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-8 py-2.5 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+        <button onClick={handleBeginInterview} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-8 py-2.5 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)]">
           Begin Interview <ArrowRight className="w-4 h-4" />
         </button>
       </div>
