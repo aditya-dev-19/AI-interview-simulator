@@ -1,8 +1,10 @@
+"use client";
+
 import React from 'react';
 import { UploadCloud } from 'lucide-react';
-import { ResumeRow } from '../ui/ResumeRow';
+import { ResumeRow } from '@/components/ui/ResumeRow';
 
-export function ResumeView() {
+export default function ResumeView() {
   return (
     <div className="p-10 max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
       <div>

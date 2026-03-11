@@ -43,3 +43,10 @@ next-env.d.ts
 
 # Documentation
 AI.md
+
+# Screenshots
+*.png
+*.jpg
+*.jpeg
+.playwright-mcp/
+screenshots/

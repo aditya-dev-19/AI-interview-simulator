@@ -1,18 +1,18 @@
+"use client";
+
 import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { Clock, Bot, User, AlertOctagon, ShieldCheck, MessageSquare, List, Mic, CheckCircle2 } from 'lucide-react';
 
-interface InterviewRoomProps {
-  onExit: () => void;
-}
-
-export function InterviewRoom({ onExit }: InterviewRoomProps) {
+export default function InterviewRoom() {
+  const router = useRouter();
   const [aiState, setAiState] = useState('speaking'); // speaking, listening, processing
-  const [proctoringFlags, setProctoringFlags] = useState<{time: string, reason: string}[]>([]);
+  const [proctoringFlags, setProctoringFlags] = useState<{ time: string, reason: string }[]>([]);
   const [showWarning, setShowWarning] = useState(false);
   const [progress, setProgress] = useState(15);
   const [sidebarTab, setSidebarTab] = useState('transcript'); // 'transcript' or 'telemetry'
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+
   // Chat History State
   const [chatHistory, setChatHistory] = useState([
     { role: 'ai', text: "Hi Alex! Thanks for joining today. Are you ready to begin your mock interview?" },
@@ -34,12 +34,12 @@ export function InterviewRoom({ onExit }: InterviewRoomProps) {
   // Hackathon trigger: Simulate Out-of-camera Warning
   const triggerWarning = () => {
     setShowWarning(true);
-    setProctoringFlags(prev => [...prev, { time: new Date().toLocaleTimeString([],{hour12:false}), reason: 'User looking away from screen' }]);
+    setProctoringFlags(prev => [...prev, { time: new Date().toLocaleTimeString([], { hour12: false }), reason: 'User looking away from screen' }]);
     // Switch to telemetry tab automatically to show the flag to judges
     setSidebarTab('telemetry');
     setTimeout(() => setShowWarning(false), 4000);
   };
-  
+
   // Hackathon trigger: Simulate adding a user message to transcript
   const triggerUserAnswer = () => {
     setChatHistory(prev => [...prev, { role: 'user', text: "We faced an issue where the React state was updating too frequently, causing massive re-renders. I implemented a debouncing utility and moved the socket listener outside the component tree." }]);
@@ -68,40 +68,40 @@ export function InterviewRoom({ onExit }: InterviewRoomProps) {
             Live Session
           </div>
         </div>
-        
+
         {/* Central Progress Tracking */}
         <div className="w-1/3 flex flex-col items-center justify-center">
-           <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium mb-1.5">
-             <Clock className="w-3.5 h-3.5" /> 12:45 remaining • Question 2 of 5
-           </div>
-           <div className="w-full max-w-xs h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-             <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{width: `${progress}%`}}></div>
-           </div>
+          <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium mb-1.5">
+            <Clock className="w-3.5 h-3.5" /> 12:45 remaining • Question 2 of 5
+          </div>
+          <div className="w-full max-w-xs h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+          </div>
         </div>
 
         <div className="w-1/3 flex justify-end">
-          <button onClick={onExit} className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-zinc-700">
+          <button onClick={() => router.push('/feedback')} className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-zinc-700">
             End Session
           </button>
         </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden relative">
-        
+
         {/* Main Stage: AI Avatar & Captions */}
         <div className="flex-1 flex flex-col items-center justify-center relative p-8">
-          
+
           {/* AI Bot Avatar Frame */}
           <div className="relative w-64 h-64 mb-8 flex items-center justify-center">
             {/* Animated Rings for speech */}
             <div className={`absolute inset-0 rounded-full border border-emerald-500/20 transition-all duration-1000 ${aiState === 'speaking' ? 'animate-ping opacity-100 scale-[1.3]' : 'opacity-0 scale-90'}`}></div>
             <div className={`absolute inset-0 rounded-full border border-emerald-400/30 transition-all duration-700 ${aiState === 'speaking' ? 'animate-ping opacity-100 scale-[1.15]' : 'opacity-0 scale-90'}`}></div>
-            
+
             {/* Custom Robot Face */}
             <div className="relative w-48 h-48 bg-gradient-to-b from-zinc-800 to-zinc-900 rounded-[2.5rem] shadow-[0_0_50px_rgba(0,0,0,0.6)] border-4 border-zinc-700 flex flex-col items-center justify-center overflow-hidden z-10 transition-all duration-500">
               {/* Glossy top highlight */}
               <div className="absolute top-0 left-0 right-0 h-1/2 bg-white/5 rounded-t-[2.5rem] pointer-events-none"></div>
-              
+
               {/* Eyes */}
               <div className="flex gap-8 mb-6 z-10">
                 <div className={`w-8 h-8 rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.8)] relative transition-all duration-300 ${aiState === 'processing' ? 'animate-process' : ''}`}>
@@ -113,11 +113,10 @@ export function InterviewRoom({ onExit }: InterviewRoomProps) {
               </div>
 
               {/* Animated Lips / Mouth */}
-              <div className={`z-10 bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.6)] transition-all duration-300 ${
-                aiState === 'speaking' ? 'animate-talk' :
+              <div className={`z-10 bg-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.6)] transition-all duration-300 ${aiState === 'speaking' ? 'animate-talk' :
                 aiState === 'processing' ? 'w-6 h-6 rounded-full' :
-                'w-16 h-1.5 rounded-full'
-              }`}></div>
+                  'w-16 h-1.5 rounded-full'
+                }`}></div>
             </div>
 
             {/* Name badge */}
@@ -133,7 +132,7 @@ export function InterviewRoom({ onExit }: InterviewRoomProps) {
             <div className="absolute inset-0 flex items-center justify-center bg-zinc-800 -z-10">
               <User className="w-12 h-12 text-zinc-600" />
             </div>
-            
+
             {/* User Name Badge (Top Left inside PIP) */}
             <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md text-[10px] text-white font-medium">
               You
@@ -161,23 +160,23 @@ export function InterviewRoom({ onExit }: InterviewRoomProps) {
 
         {/* Sidebar: Transcript & Telemetry Tabs */}
         <div className="w-80 border-l border-zinc-800 bg-zinc-900/20 flex flex-col z-20 shrink-0 relative">
-          
+
           {/* Tab Navigation */}
           <div className="flex border-b border-zinc-800 pt-4 px-6">
-            <button 
+            <button
               onClick={() => setSidebarTab('transcript')}
               className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center justify-center gap-2 ${sidebarTab === 'transcript' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
             >
               <MessageSquare className="w-3.5 h-3.5" /> Transcript
             </button>
-            <button 
+            <button
               onClick={() => setSidebarTab('telemetry')}
               className={`flex-1 pb-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-colors flex items-center justify-center gap-2 ${sidebarTab === 'telemetry' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-zinc-500 hover:text-zinc-300'}`}
             >
               <List className="w-3.5 h-3.5" /> Telemetry
             </button>
           </div>
-          
+
           <div className="flex-1 flex flex-col p-6 min-h-0 overflow-y-auto">
             {/* TAB CONTENT: TRANSCRIPT */}
             {sidebarTab === 'transcript' && (
@@ -213,9 +212,9 @@ export function InterviewRoom({ onExit }: InterviewRoomProps) {
                     <span className="text-emerald-400 font-mono">ACTIVE</span>
                   </div>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs space-y-2">
-                    <div className="flex items-center gap-2 text-zinc-300"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400"/> Resume parsed</div>
-                    <div className="flex items-center gap-2 text-zinc-300"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400"/> JD ingested</div>
-                    <div className="flex items-center gap-2 text-zinc-300"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400"/> Bot Persona loaded</div>
+                    <div className="flex items-center gap-2 text-zinc-300"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Resume parsed</div>
+                    <div className="flex items-center gap-2 text-zinc-300"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> JD ingested</div>
+                    <div className="flex items-center gap-2 text-zinc-300"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Bot Persona loaded</div>
                   </div>
                 </div>
 
@@ -241,7 +240,7 @@ export function InterviewRoom({ onExit }: InterviewRoomProps) {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Barge-in Status */}
                 <div className="p-3 bg-zinc-900/80 rounded-lg border border-zinc-700 flex items-center justify-between shadow-inner shrink-0 mt-4">
                   <span className="text-xs text-zinc-300 font-medium">VAD Engine</span>

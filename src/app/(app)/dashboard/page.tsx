@@ -1,33 +1,32 @@
+"use client";
+
 import React from 'react';
+import Link from 'next/link';
 import { Play, Activity, BrainCircuit, TrendingDown, Lightbulb } from 'lucide-react';
-import { SkillBar } from '../ui/SkillBar';
-import { SessionRow } from '../ui/SessionRow';
+import { SkillBar } from '@/components/ui/SkillBar';
+import { SessionRow } from '@/components/ui/SessionRow';
 
-interface DashboardViewProps {
-  onStart: () => void;
-}
-
-export function DashboardView({ onStart }: DashboardViewProps) {
+export default function DashboardView() {
   return (
     <div className="p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
+
       {/* Header & Hero Action */}
       <div className="flex justify-between items-end">
         <div>
           <h2 className="text-3xl font-bold text-white mb-2">Welcome back, Alex.</h2>
           <p className="text-zinc-400">Your interview readiness is up <span className="text-emerald-400 font-medium">12%</span> this week.</p>
         </div>
-        <button 
-          onClick={onStart}
+        <Link
+          href="/setup"
           className="group relative flex items-center gap-3 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-6 py-3 rounded-xl font-semibold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)]"
         >
           <Play size={18} fill="currentColor" />
           Start Mock Interview
-        </button>
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* Readiness Trend Chart (Custom SVG) */}
         <div className="col-span-2 bg-zinc-900/40 border border-zinc-800/60 rounded-2xl p-6">
           <h3 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
@@ -70,7 +69,7 @@ export function DashboardView({ onStart }: DashboardViewProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
             <div className="flex items-center gap-2 text-red-400 mb-2">
-              <TrendingDown className="w-4 h-4" /> 
+              <TrendingDown className="w-4 h-4" />
               <span className="font-semibold text-sm">Why your score dropped on Oct 18</span>
             </div>
             <p className="text-sm text-zinc-400 leading-relaxed">
@@ -79,7 +78,7 @@ export function DashboardView({ onStart }: DashboardViewProps) {
           </div>
           <div className="bg-zinc-950/50 p-4 rounded-xl border border-zinc-800/50">
             <div className="flex items-center gap-2 text-emerald-400 mb-2">
-              <Lightbulb className="w-4 h-4" /> 
+              <Lightbulb className="w-4 h-4" />
               <span className="font-semibold text-sm">Actionable Tip for Next Mock</span>
             </div>
             <p className="text-sm text-zinc-400 leading-relaxed">
