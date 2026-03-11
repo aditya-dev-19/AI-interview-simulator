@@ -4,9 +4,19 @@ import React from 'react';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, FileText, Activity, User, BrainCircuit } from 'lucide-react';
 import { NavItem } from './ui/NavItem';
+import { createClient } from '@/utils/supabase/client';
+import { LogOut } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export function Sidebar() {
   const pathname = usePathname() || '';
+  const supabase = createClient();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/auth');
+  };
   
   return (
     <nav className="w-64 border-r border-zinc-800/60 bg-zinc-950/50 flex flex-col justify-between z-20 relative">
@@ -26,6 +36,7 @@ export function Sidebar() {
       </div>
 
       <div className="p-6 border-t border-zinc-800/60">
+        <div className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-800">
         <div className="flex items-center gap-3 bg-zinc-900/50 p-3 rounded-xl border border-zinc-800">
           <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
             <User className="w-5 h-5 text-zinc-400" />
@@ -35,6 +46,14 @@ export function Sidebar() {
             <p className="text-xs text-emerald-400">Pro Tier</p>
           </div>
         </div>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-2 text-xs text-zinc-400 hover:text-red-400 transition"
+        >
+          <LogOut size={14} />
+          Logout
+        </button>
+      </div>
       </div>
     </nav>
   );
