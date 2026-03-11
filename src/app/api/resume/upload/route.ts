@@ -4,6 +4,43 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
+const PREFERRED_PARSER_MODELS = [
+  process.env.GEMINI_RESUME_MODEL,
+  "gemini-2.5-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-001",
+  "gemini-1.5-pro-001",
+].filter((value): value is string => Boolean(value));
+
+type GeminiModelListItem = {
+  name?: string;
+  supportedGenerationMethods?: string[];
+};
+
+async function getAvailableGenerateContentModels(apiKey: string): Promise<string[]> {
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (!response.ok) {
+      const body = await response.text();
+      console.warn("Gemini ListModels failed:", response.status, body);
+      return [];
+    }
+
+    const payload = (await response.json()) as { models?: GeminiModelListItem[] };
+    const models = payload.models || [];
+
+    return models
+      .filter((model) => model.supportedGenerationMethods?.includes("generateContent"))
+      .map((model) => model.name?.replace(/^models\//, ""))
+      .filter((name): name is string => Boolean(name));
+  } catch (error) {
+    console.warn("Gemini ListModels error:", error);
+    return [];
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -44,26 +81,51 @@ export async function POST(req: NextRequest) {
       .from("resumes")
       .getPublicUrl(filePath);
 
-    // 2. Parse PDF with Gemini 1.5 Flash
+    // 2. Parse PDF with Gemini
     let parsedText = "";
     try {
       const arrayBuffer = await file.arrayBuffer();
       const base64Data = Buffer.from(arrayBuffer).toString("base64");
-
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = "Extract all the text from this resume. Return only the extracted text, formatted cleanly.";
-      
-      const result = await model.generateContent([
-        prompt,
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType: "application/pdf"
+
+      const apiKey = process.env.GEMINI_API_KEY || "";
+      const availableModels = apiKey ? await getAvailableGenerateContentModels(apiKey) : [];
+
+      const sortedAvailablePreferred = PREFERRED_PARSER_MODELS.filter((model) => availableModels.includes(model));
+      const extraAvailable = availableModels.filter((model) => !sortedAvailablePreferred.includes(model));
+      const parserModelCandidates = [...sortedAvailablePreferred, ...extraAvailable];
+
+      let lastModelError: unknown;
+
+      for (const modelName of parserModelCandidates) {
+        try {
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent([
+            prompt,
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: "application/pdf"
+              }
+            }
+          ]);
+
+          parsedText = result.response.text();
+          if (parsedText) {
+            break;
           }
+        } catch (modelError) {
+          lastModelError = modelError;
+          console.warn(`Gemini resume parse failed for model ${modelName}:`, modelError);
         }
-      ]);
-      
-      parsedText = result.response.text();
+      }
+
+      if (!parsedText) {
+        if (parserModelCandidates.length === 0) {
+          throw new Error("No generateContent-capable Gemini models found for this API key");
+        }
+        throw lastModelError || new Error("No Gemini parser model returned parsed text");
+      }
     } catch (parseError) {
       console.error("Gemini parse error:", parseError);
       // We might want to clean up the storage file here if parsing fails
