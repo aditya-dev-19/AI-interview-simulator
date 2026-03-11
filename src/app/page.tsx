@@ -44,13 +44,13 @@ export default function LandingPage() {
 
         {/* Tab Switcher */}
         <div className="flex p-1 bg-zinc-900/80 rounded-xl mb-8 border border-zinc-800/50 relative z-10">
-          <button
+          <button suppressHydrationWarning
             onClick={() => setIsLogin(true)}
             className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${isLogin ? 'bg-[#18181b] text-white shadow-sm border border-zinc-700' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             Login
           </button>
-          <button
+          <button suppressHydrationWarning
             onClick={() => setIsLogin(false)}
             className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${!isLogin ? 'bg-[#18181b] text-white shadow-sm border border-zinc-700' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
@@ -64,7 +64,7 @@ export default function LandingPage() {
           {!isLogin && (
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-zinc-300 ml-1">Full Name</label>
-              <input
+              <input suppressHydrationWarning
                 type="text"
                 placeholder="John Doe"
                 required
@@ -75,7 +75,7 @@ export default function LandingPage() {
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-zinc-300 ml-1">Email</label>
-            <input
+            <input suppressHydrationWarning
               type="email"
               placeholder="you@example.com"
               required
@@ -85,7 +85,7 @@ export default function LandingPage() {
 
           <div className="space-y-1.5">
             <label className="text-xs font-semibold text-zinc-300 ml-1">Password</label>
-            <input
+            <input suppressHydrationWarning
               type="password"
               placeholder="••••••••"
               required
@@ -96,14 +96,14 @@ export default function LandingPage() {
           {isLogin && (
             <div className="flex items-center justify-between pt-1">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-950 transition-colors cursor-pointer" />
+                <input suppressHydrationWarning type="checkbox" className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-950 transition-colors cursor-pointer" />
                 <span className="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors font-medium">Remember me</span>
               </label>
               <a href="#" className="text-sm text-emerald-500 hover:text-emerald-400 font-medium transition-colors">Forgot password?</a>
             </div>
           )}
 
-          <button
+          <button suppressHydrationWarning
             type="submit"
             className="w-full bg-emerald-500 hover:bg-emerald-400 text-zinc-950 py-3.5 rounded-xl font-bold transition-all shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.3)] mt-6 text-sm"
           >
@@ -120,10 +120,10 @@ export default function LandingPage() {
 
         {/* OAuth Buttons */}
         <div className="grid grid-cols-2 gap-4 relative z-10">
-          <button type="button" className="flex items-center justify-center gap-2 py-3 bg-[#111113] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-sm font-semibold text-zinc-300 transition-colors">
+          <button suppressHydrationWarning type="button" className="flex items-center justify-center gap-2 py-3 bg-[#111113] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-sm font-semibold text-zinc-300 transition-colors">
             <Github className="w-4 h-4 text-white" /> GitHub
           </button>
-          <button type="button" className="flex items-center justify-center gap-2 py-3 bg-[#111113] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-sm font-semibold text-zinc-300 transition-colors">
+          <button suppressHydrationWarning type="button" className="flex items-center justify-center gap-2 py-3 bg-[#111113] hover:bg-zinc-800 border border-zinc-800 rounded-xl text-sm font-semibold text-zinc-300 transition-colors">
             <Mail className="w-4 h-4 text-white" /> Google
           </button>
         </div>
