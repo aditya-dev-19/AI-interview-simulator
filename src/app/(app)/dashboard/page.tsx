@@ -23,7 +23,7 @@ export default function DashboardView() {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const res = await fetch("/api/interviews/recent");
+        const res = await fetch("/api/interview/recent");
         const data = await res.json();
 
         setSessions(data.sessions || []);

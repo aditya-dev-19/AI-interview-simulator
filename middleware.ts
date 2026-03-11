@@ -15,8 +15,8 @@ export async function middleware(req: NextRequest) {
     req.nextUrl.pathname.startsWith(route)
   );
 
-  if (isProtected && !user && !req.nextUrl.pathname.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/login", req.url));
+  if (isProtected && !user) {
+    return NextResponse.redirect(new URL("/auth", req.url));
   }
 
   return NextResponse.next();

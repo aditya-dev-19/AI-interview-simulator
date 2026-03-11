@@ -22,16 +22,23 @@ export default function ResumeView() {
 
   const fetchResumes = async () => {
     try {
-      const res = await fetch("/api/resume/list?userId=USER_ID_HERE");
+      const res = await fetch("/api/resume/list", {
+        credentials: "include"
+      });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
       if (!res.ok) {
         setError(data.error || "Failed to load resumes");
         return;
       }
 
-      const formatted = data.resumes.map((r: any) => ({
+      const formatted = (data?.resumes || []).map((r: any) => ({
         id: r.id,
         name: r.file_name,
         date: `Uploaded ${new Date(r.uploaded_at).toLocaleDateString()}`,
@@ -45,16 +52,24 @@ export default function ResumeView() {
     }
   };
   const deleteResume = async (id: string) => {
+    if (!id) return;
+    setError(null);
     try {
       const res = await fetch("/api/resume/delete", {
         method: "DELETE",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({ id })
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
 
       if (!res.ok) {
         setError(data.error || "Delete failed");
@@ -98,6 +113,7 @@ export default function ResumeView() {
 
       const res = await fetch("/api/resume/upload", {
         method: "POST",
+        credentials: "include",
         body: formData
       });
 
@@ -108,15 +124,15 @@ export default function ResumeView() {
         return;
       }
 
-      const newResume = {
-        id: data.resume.id,
-        name: data.resume.file_name,
-        date: `Uploaded ${new Date().toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric'
-        })}`,
-        active: false
-      };
+      // const newResume = {
+      //   id: data.resume.id,
+      //   name: data.resume.file_name,
+      //   date: `Uploaded ${new Date().toLocaleDateString('en-US', {
+      //     month: 'short',
+      //     day: 'numeric'
+      //   })}`,
+      //   active: false
+      // };
 
       await fetchResumes();
     } catch (err) {
@@ -158,7 +174,11 @@ export default function ResumeView() {
 
       {/* Upload Zone */}
       <div
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => {
+          if (resumes.length < MAX_RESUMES) {
+            fileInputRef.current?.click();
+          }
+        }}
         className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all cursor-pointer flex flex-col items-center justify-center group
           ${resumes.length >= MAX_RESUMES
             ? 'border-zinc-800 bg-zinc-900/10 cursor-not-allowed opacity-50'
