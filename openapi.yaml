@@ -1,0 +1,103 @@
+openapi: 3.0.3
+info:
+  title: AI Interview Simulator API
+  description: API documentation for the AI Interview Simulator platform.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Local Development Server
+paths:
+  /api/hello:
+    get:
+      summary: Health check endpoint
+      description: Returns a simple greeting message to verify the API is running.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Hello from API!
+
+  /api/resume/upload:
+    post:
+      summary: Upload and parse a resume
+      description: |
+        Uploads a PDF resume to Supabase Storage, parses its text content using Gemini 1.5 Flash, 
+        and saves a record in the Supabase database.
+        **Requires the user to be authenticated via Supabase Auth.**
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: The PDF resume file to upload.
+      responses:
+        '201':
+          description: Successfully uploaded, parsed, and saved the resume.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  resume:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      user_id:
+                        type: string
+                        format: uuid
+                      file_url:
+                        type: string
+                        format: uri
+                      file_name:
+                        type: string
+                      parsed_text:
+                        type: string
+                      created_at:
+                        type: string
+                        format: date-time
+        '400':
+          description: Bad request (e.g., missing file, invalid file type).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Only PDF files are allowed
+        '401':
+          description: Unauthorized (User is not logged in).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Unauthorized
+        '500':
+          description: Internal server error (e.g., storage failure, parsing failure).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to parse PDF content

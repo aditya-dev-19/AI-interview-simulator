@@ -1,0 +1,163 @@
+meta {
+  name: Upload and parse a resume
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/resume/upload
+  body: multipartForm
+  auth: inherit
+}
+
+body:multipart-form {
+  file: 
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:3000
+}
+
+example {
+  name: 201 Response
+  description: Successfully uploaded, parsed, and saved the resume.
+  
+  request: {
+    url: {{baseUrl}}/api/resume/upload
+    method: POST
+    mode: multipartForm
+    body:multipart-form: {
+      file: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 201
+      text: Created
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "success": false,
+          "resume": {
+            "id": "",
+            "user_id": "",
+            "file_url": "",
+            "file_name": "",
+            "parsed_text": "",
+            "created_at": ""
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Bad request (e.g., missing file, invalid file type).
+  
+  request: {
+    url: {{baseUrl}}/api/resume/upload
+    method: POST
+    mode: multipartForm
+    body:multipart-form: {
+      file: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 400
+      text: Bad Request
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "error": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Unauthorized (User is not logged in).
+  
+  request: {
+    url: {{baseUrl}}/api/resume/upload
+    method: POST
+    mode: multipartForm
+    body:multipart-form: {
+      file: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "error": ""
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Internal server error (e.g., storage failure, parsing failure).
+  
+  request: {
+    url: {{baseUrl}}/api/resume/upload
+    method: POST
+    mode: multipartForm
+    body:multipart-form: {
+      file: 
+    }
+  }
+  
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+  
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+  
+    body: {
+      type: json
+      content: '''
+        {
+          "error": ""
+        }
+      '''
+    }
+  }
+}
