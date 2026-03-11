@@ -1,13 +1,13 @@
+"use client";
+
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { LayoutDashboard, FileText, Activity, User, BrainCircuit } from 'lucide-react';
 import { NavItem } from './ui/NavItem';
 
-interface SidebarProps {
-  activeTab: string;
-  setActiveTab: (tab: string) => void;
-}
-
-export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
+export function Sidebar() {
+  const pathname = usePathname() || '';
+  
   return (
     <nav className="w-64 border-r border-zinc-800/60 bg-zinc-950/50 flex flex-col justify-between z-20 relative">
       <div>
@@ -17,11 +17,11 @@ export function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">Interview<span className="text-emerald-400">Pro</span></h1>
         </div>
-        
+
         <div className="px-4 space-y-1 mt-4">
-          <NavItem icon={<LayoutDashboard size={18}/>} label="Dashboard" isActive={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
-          <NavItem icon={<FileText size={18}/>} label="Resume Library" isActive={activeTab === 'resumes'} onClick={() => setActiveTab('resumes')} />
-          <NavItem icon={<Activity size={18}/>} label="Mock Interview" isActive={activeTab === 'setup' || activeTab === 'interview' || activeTab === 'feedback'} onClick={() => setActiveTab('setup')} />
+          <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" isActive={pathname.startsWith('/dashboard')} href="/dashboard" />
+          <NavItem icon={<FileText size={18} />} label="Resume Library" isActive={pathname.startsWith('/uploadresume')} href="/uploadresume" />
+          <NavItem icon={<Activity size={18} />} label="Mock Interview" isActive={pathname.startsWith('/setup') || pathname.startsWith('/interviewer') || pathname.startsWith('/feedback')} href="/setup" />
         </div>
       </div>
 
