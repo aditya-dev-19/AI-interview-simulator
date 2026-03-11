@@ -3,21 +3,71 @@
 import React, { useState, useRef } from 'react';
 import { UploadCloud, AlertCircle, X } from 'lucide-react';
 import { ResumeRow } from '@/components/ui/ResumeRow';
+import { useEffect } from "react";
 
 export default function ResumeView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // State for managing the list of resumes
-  const [resumes, setResumes] = useState([
-    { id: 1, name: "frontend_resume_2026.pdf", date: "Uploaded Oct 22", active: true },
-    { id: 2, name: "fullstack_backup_v2.pdf", date: "Uploaded Sep 14", active: false },
-  ]);
+  const [resumes, setResumes] = useState<any[]>([]);
 
   const [error, setError] = useState<string | null>(null);
 
   const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
   const MAX_RESUMES = 3;
 
+
+  useEffect(() => {
+    fetchResumes();
+  }, []);
+
+  const fetchResumes = async () => {
+    try {
+      const res = await fetch("/api/resume/list?userId=USER_ID_HERE");
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Failed to load resumes");
+        return;
+      }
+
+      const formatted = data.resumes.map((r: any) => ({
+        id: r.id,
+        name: r.file_name,
+        date: `Uploaded ${new Date(r.uploaded_at).toLocaleDateString()}`,
+        active: false
+      }));
+
+      setResumes(formatted);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to fetch resumes");
+    }
+  };
+  const deleteResume = async (id: string) => {
+    try {
+      const res = await fetch("/api/resume/delete", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Delete failed");
+        return;
+      }
+
+      setResumes(prev => prev.filter(r => r.id !== id));
+
+    } catch (err) {
+      console.error(err);
+      setError("Failed to delete resume");
+    }
+  };
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     setError(null);
@@ -68,8 +118,7 @@ export default function ResumeView() {
         active: false
       };
 
-      setResumes(prev => [...prev, newResume]);
-
+      await fetchResumes();
     } catch (err) {
       console.error(err);
       setError("Something went wrong during upload");
@@ -131,9 +180,11 @@ export default function ResumeView() {
         {resumes.map((resume) => (
           <ResumeRow
             key={resume.id}
+            id={resume.id}
             name={resume.name}
             date={resume.date}
             active={resume.active}
+            onDelete={deleteResume}
           />
         ))}
 

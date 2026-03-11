@@ -2,12 +2,14 @@ import React from 'react';
 import { FileText, CheckCircle2, Trash2 } from 'lucide-react';
 
 interface ResumeRowProps {
+  id: string;
   name: string;
   date: string;
   active?: boolean;
+  onDelete: (id: string) => void;
 }
 
-export function ResumeRow({ name, date, active }: ResumeRowProps) {
+export function ResumeRow({ id, name, date, active, onDelete }: ResumeRowProps) {
   return (
     <div className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-xl border border-zinc-800/80">
       <div className="flex items-center gap-4">
