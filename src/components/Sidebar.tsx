@@ -12,12 +12,31 @@ export function Sidebar() {
   const pathname = usePathname() || '';
   const supabase = createClient();
   const router = useRouter();
-
+  const [name, setName] = React.useState<string>("Loading...");
+  
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/auth');
   };
-  
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        setName(data.full_name);
+      }
+    };
+
+    fetchUser();
+  }, []);
   return (
     <nav className="w-64 border-r border-zinc-800/60 bg-zinc-950/50 flex flex-col justify-between z-20 relative">
       <div>
@@ -42,8 +61,8 @@ export function Sidebar() {
             <User className="w-5 h-5 text-zinc-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-white">Alex Hacker</p>
-            <p className="text-xs text-emerald-400">Pro Tier</p>
+            <p className="text-sm font-medium text-white">{name}</p>
+            {/* <p className="text-xs text-emerald-400">Pro Tier</p> */}
           </div>
         </div>
         <button
