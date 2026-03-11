@@ -44,7 +44,6 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     // Log the error for debugging
     console.error("Signup Error:", err);
-
     return NextResponse.json(
       { error: err.message || "Internal Server Error" },
       { status: 500 }

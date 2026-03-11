@@ -40,6 +40,7 @@ export default function AuthView() {
         });
 
         const data = await res.json();
+        console.log(email, password);
 
         if (!res.ok) throw new Error(data.error);
 
@@ -56,7 +57,7 @@ export default function AuthView() {
             fullName,
           }),
         });
-
+        console.log(email, password, fullName);
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error);
