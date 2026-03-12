@@ -1,6 +1,79 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
+type GeminiTokenCountResponse = {
+  totalTokens?: number;
+};
+
+type TokenBreakdown = {
+  resumePartTokens: number;
+  jobDescriptionPartTokens: number;
+  personaPromptTokens: number;
+  totalContextTokens: number;
+};
+
+async function countTokensForModel(
+  apiKey: string,
+  model: string,
+  body: { contents?: unknown; systemInstruction?: unknown }
+): Promise<number> {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:countTokens?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`countTokens failed (${res.status}): ${text}`);
+  }
+
+  const payload = (await res.json()) as GeminiTokenCountResponse;
+  return payload.totalTokens ?? 0;
+}
+
+async function getTokenBreakdown(
+  apiKey: string,
+  model: string,
+  resumeText: string,
+  jobDescription: string,
+  personaPrompt: string
+): Promise<TokenBreakdown> {
+  const resumePart = `CANDIDATE RESUME:\n${resumeText}\n\n---`;
+  const jdPart = `\n\nJOB DESCRIPTION:\n${jobDescription}`;
+
+  const [resumePartTokens, jobDescriptionPartTokens, totalContextTokens] =
+    await Promise.all([
+      countTokensForModel(apiKey, model, {
+        contents: [{ role: "user", parts: [{ text: resumePart }] }],
+      }),
+      countTokensForModel(apiKey, model, {
+        contents: [{ role: "user", parts: [{ text: jdPart }] }],
+      }),
+      // Count total context: resume + JD + persona as a system message within contents
+      countTokensForModel(apiKey, model, {
+        contents: [
+          { role: "user", parts: [{ text: resumePart }, { text: jdPart }] },
+          { role: "user", parts: [{ text: `[SYSTEM INSTRUCTION]\n${personaPrompt}` }] },
+        ],
+      }),
+    ]);
+
+  // Estimate persona prompt tokens by subtracting (total - resume - jd) with some buffer
+  // This is approximate since token counting is sublinear but gives a reasonable estimate
+  const personaPromptTokens = Math.max(0, totalContextTokens - resumePartTokens - jobDescriptionPartTokens);
+
+  return {
+    resumePartTokens,
+    jobDescriptionPartTokens,
+    personaPromptTokens,
+    totalContextTokens,
+  };
+}
+
 // Models that support context caching, in order of preference
 // const CACHE_MODEL_CANDIDATES = [
 //   process.env.GEMINI_INTERVIEW_MODEL,
@@ -108,15 +181,32 @@ export async function POST(req: NextRequest) {
       ttl: "3600s" // 1 hour expiration
     };
 
+    let tokenBreakdown: TokenBreakdown | null = null;
+    try {
+      tokenBreakdown = await getTokenBreakdown(
+        apiKey,
+        cacheModel,
+        resumeRecord.parsed_text ?? "",
+        job_description,
+        personaPrompt
+      );
+    } catch (tokenError) {
+      console.warn("Gemini countTokens failed; falling back to char heuristic:", tokenError);
+    }
+
     // 6. Attempt Gemini CachedContents API; fall back to inline context if content is too small.
-    // Gemini requires >= 4096 tokens. Rough estimate: 1 token ≈ 4 chars; skip the network round-trip
-    // when the combined context is clearly below that threshold.
-    const MIN_CACHE_CHARS = 4096 * 4; // ~16 kB ≈ 4096 tokens
+    // Gemini requires >= 4096 tokens. Prefer exact countTokens result; fall back to char heuristic.
+    const MIN_CACHE_TOKENS = 4096;
+    const MIN_CACHE_CHARS = 4096 * 4; // ~16 kB ≈ 4096 tokens fallback heuristic
     const combinedContextLength =
       (resumeRecord.parsed_text?.length ?? 0) + job_description.length + personaPrompt.length;
 
+    const shouldAttemptCache = tokenBreakdown
+      ? tokenBreakdown.totalContextTokens >= MIN_CACHE_TOKENS
+      : combinedContextLength >= MIN_CACHE_CHARS;
+
     let cacheResponse: Response | null = null;
-    if (combinedContextLength >= MIN_CACHE_CHARS) {
+    if (shouldAttemptCache) {
       cacheResponse = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`,
         {
@@ -186,11 +276,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to create interview session record" }, { status: 500 });
     }
 
+    console.info("[interview/start] token_counts", {
+      model: cacheModel,
+      track: selectedTrack,
+      resume_part_tokens: tokenBreakdown?.resumePartTokens ?? null,
+      job_description_part_tokens: tokenBreakdown?.jobDescriptionPartTokens ?? null,
+      persona_prompt_tokens: tokenBreakdown?.personaPromptTokens ?? null,
+      total_context_tokens: tokenBreakdown?.totalContextTokens ?? null,
+      cache_threshold_tokens: MIN_CACHE_TOKENS,
+      cache_attempted: shouldAttemptCache,
+      fallback_char_estimate: tokenBreakdown ? null : combinedContextLength,
+      interview_id: interviewRecord.id,
+    });
+
     // 8. Return successful session info to client
-    return NextResponse.json({ 
-      success: true, 
-      interview_id: interviewRecord.id, 
-      cache_id: geminiCacheId 
+    return NextResponse.json({
+      success: true,
+      interview_id: interviewRecord.id,
+      cache_id: geminiCacheId,
+      token_counts: {
+        model: cacheModel,
+        track: selectedTrack,
+        resume_part_tokens: tokenBreakdown?.resumePartTokens ?? null,
+        job_description_part_tokens: tokenBreakdown?.jobDescriptionPartTokens ?? null,
+        persona_prompt_tokens: tokenBreakdown?.personaPromptTokens ?? null,
+        total_context_tokens: tokenBreakdown?.totalContextTokens ?? null,
+        cache_threshold_tokens: MIN_CACHE_TOKENS,
+        cache_attempted: shouldAttemptCache,
+        fallback_char_estimate: tokenBreakdown ? null : combinedContextLength,
+      },
     }, { status: 201 });
 
   } catch (error) {
