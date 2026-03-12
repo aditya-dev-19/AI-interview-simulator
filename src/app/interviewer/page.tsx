@@ -27,15 +27,19 @@ export default function InterviewRoom() {
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(15);
   const [sidebarTab, setSidebarTab] = useState('transcript'); // 'transcript' or 'telemetry'
+  const [chatHistory, setChatHistory] = useState([
+    { role: 'ai', text: "Connecting to live session… Please allow microphone access when prompted." }
+  ]);
   const videoRef = useRef<HTMLVideoElement>(null);
   const webcamStreamRef = useRef<MediaStream | null>(null);
   const liveClientRef = useRef<GeminiLiveClient | null>(null);
   const vadRef = useRef<MicVadController | null>(null);
+  const transcriptEndRef = useRef<HTMLDivElement>(null);
 
-  // Chat History State
-  const [chatHistory, setChatHistory] = useState([
-    { role: 'ai', text: "Connecting to live session… Please allow microphone access when prompted." }
-  ]);
+  // Auto-scroll transcript to bottom whenever a new message arrives
+  useEffect(() => {
+    transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatHistory]);
 
   // Simulate webcam stream
   useEffect(() => {
@@ -159,7 +163,18 @@ export default function InterviewRoom() {
           onTranscript: (role, text) => {
             if (!text?.trim()) return;
             const mappedRole = role === 'ai' ? 'ai' : 'user';
-            setChatHistory((prev) => [...prev, { role: mappedRole, text }]);
+            setChatHistory((prev) => {
+              const last = prev[prev.length - 1];
+              // Accumulate fragments from the same speaker into one bubble;
+              // start a new bubble only when the speaker changes.
+              if (last && last.role === mappedRole) {
+                return [
+                  ...prev.slice(0, -1),
+                  { role: mappedRole, text: last.text + ' ' + text.trim() },
+                ];
+              }
+              return [...prev, { role: mappedRole, text: text.trim() }];
+            });
             if (mappedRole === 'user') setAiState('processing');
           },
           onError: (message) => {
@@ -406,6 +421,7 @@ export default function InterviewRoom() {
                     </div>
                   </div>
                 )}
+                <div ref={transcriptEndRef} />
                 {aiState === 'processing' && (
                   <div className="flex flex-col items-start animate-pulse mt-2">
                     <span className="text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">Sarah (AI)</span>
