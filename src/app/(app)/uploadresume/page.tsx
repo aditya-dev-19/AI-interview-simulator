@@ -76,8 +76,8 @@ export default function ResumeView() {
         return;
       }
 
-      setResumes(prev => prev.filter(r => r.id !== id));
-
+      // setResumes(prev => prev.filter(r => r.id !== id));
+      await fetchResumes();
     } catch (err) {
       console.error(err);
       setError("Failed to delete resume");

@@ -16,7 +16,8 @@ export function Sidebar() {
   
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/auth');
+
+    router.replace("/auth");
   };
   React.useEffect(() => {
     const fetchUser = async () => {
