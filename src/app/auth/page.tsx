@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Mail, Github } from 'lucide-react';
+import { Mail, Github } from 'lucide-react';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from "next/navigation";
+import { Logo } from '@/components/ui/Logo';
 
 export default function AuthView() {
   const [isLogin, setIsLogin] = useState(true);
@@ -75,12 +76,7 @@ export default function AuthView() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-950 px-4 animate-in fade-in duration-700">
 
       {/* Brand Header */}
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center border border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.25)]">
-          <Sparkles className="w-6 h-6 text-emerald-400" />
-        </div>
-        <h1 className="text-2xl font-bold tracking-tight text-white">AI Interview Pro</h1>
-      </div>
+      <Logo className="mb-8" textSize="text-3xl" iconSize={28} />
 
       {/* Auth Card */}
       <div className="w-full max-w-[420px] bg-[#0c0c0e] border border-zinc-800/80 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
