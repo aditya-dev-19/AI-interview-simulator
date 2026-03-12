@@ -14,7 +14,7 @@ try {
 const PROXY_PORT = Number(process.env.INTERVIEW_STREAM_PROXY_PORT || 8081);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_LIVE_MODEL =
-  process.env.GEMINI_LIVE_MODEL || 'gemini-2.0-flash';
+  process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash';
 const GEMINI_WS_BASE =
   'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
 

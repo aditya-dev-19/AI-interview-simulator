@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
     if (isDirect) {
       // Format: "direct|||modelName|||base64(JSON context)"
       const parts = (rawCacheId as string).split("|||");
-      cacheModel = parts[1] ?? "gemini-2.0-flash";
+      cacheModel = parts[1] ?? "gemini-2.5-flash";
       const ctx = JSON.parse(Buffer.from(parts[2] ?? "", "base64").toString("utf-8")) as {
         systemPrompt: string;
         resumeText: string;
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     } else {
       // Format: "modelName|||cacheName"
       const separatorIdx = rawCacheId?.indexOf("|||") ?? -1;
-      cacheModel = separatorIdx !== -1 ? rawCacheId!.slice(0, separatorIdx) : "gemini-2.0-flash";
+      cacheModel = separatorIdx !== -1 ? rawCacheId!.slice(0, separatorIdx) : "gemini-2.5-flash";
       const cacheId = separatorIdx !== -1 ? rawCacheId!.slice(separatorIdx + 3) : rawCacheId;
 
       geminiRequestBody = {
