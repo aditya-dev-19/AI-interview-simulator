@@ -53,13 +53,15 @@ export default function InterviewRoom() {
     };
   }, []);
 
-  // Auto-connect as soon as the page mounts (or once interviewId is available)
+  // Auto-connect once the page mounts (or when interviewId becomes available).
   useEffect(() => {
-    startMic();
+    void startMic();
+
     return () => {
       vadRef.current?.pause();
       vadRef.current = null;
       void liveClientRef.current?.disconnect();
+      liveClientRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [interviewId]);
@@ -125,6 +127,7 @@ export default function InterviewRoom() {
 
       if (liveClientRef.current) {
         await liveClientRef.current.disconnect();
+        liveClientRef.current = null;
       }
 
       const client = createGeminiLiveClient(
@@ -170,8 +173,8 @@ export default function InterviewRoom() {
         }
       );
 
-      liveClientRef.current = client;
       await client.connect();
+      liveClientRef.current = client;
       await startPreVad(client);
       setLiveStatus('connected');
       setAiState('listening');
