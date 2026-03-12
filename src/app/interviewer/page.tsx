@@ -28,6 +28,8 @@ export default function InterviewRoom() {
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(15);
   const [sidebarTab, setSidebarTab] = useState('transcript'); // 'transcript' or 'telemetry'
+  const INTERVIEW_DURATION = 15 * 60; // 15 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState(INTERVIEW_DURATION);
   const [hasCameraAccess, setHasCameraAccess] = useState<boolean | null>(null);
   const [hasMicAccess, setHasMicAccess] = useState<boolean | null>(null);
   const [lastProctorStatus, setLastProctorStatus] = useState<'scanning' | 'safe' | 'flagged' | 'idle'>('idle');
@@ -59,6 +61,21 @@ export default function InterviewRoom() {
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          endInterviewSession();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Simulate webcam stream
   useEffect(() => {
@@ -121,7 +138,7 @@ export default function InterviewRoom() {
         console.error("Proctor request failed:", err);
         setLastProctorStatus('idle');
       }
-    }, 20000); // 20 seconds
+    }, 60000); // 60 seconds
 
     return () => clearInterval(interval);
   }, [interviewId]);
@@ -207,7 +224,19 @@ export default function InterviewRoom() {
       console.warn('Pre-VAD failed to initialize. Falling back to built-in mic interrupt logic.', error);
     }
   };
+  function formatTime(seconds: number) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+  function endInterviewSession() {
+    console.log("Interview finished");
 
+    vadRef.current?.pause();
+    liveClientRef.current?.disconnect();
+
+    router.push(`/feedback?id=${interviewId}`);
+  }
   const startMic = async () => {
     if (!interviewId) {
       setLiveError('Missing interview id. Please restart from setup page.');
@@ -337,10 +366,12 @@ export default function InterviewRoom() {
         {/* Central Progress Tracking */}
         <div className="w-1/3 flex flex-col items-center justify-center">
           <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium mb-1.5">
-            <Clock className="w-3.5 h-3.5" /> 12:45 remaining • Question 2 of 5
+            <Clock className="w-3.5 h-3.5" /> {formatTime(timeRemaining)} remaining • Question 2 of 5
           </div>
           <div className="w-full max-w-xs h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+            <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{
+              width: `${((INTERVIEW_DURATION - timeRemaining) / INTERVIEW_DURATION) * 100}%`
+            }}></div>
           </div>
         </div>
 

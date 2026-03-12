@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const base64 = image.split(",")[1];
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: "POST",
         headers: {
@@ -74,6 +74,13 @@ Return ONLY JSON:
       const text = await response.text();
       console.error(`[proctor] Gemini API failed with status ${response.status}:`, text);
 
+      if (response.status === 429) {
+        return NextResponse.json(
+          { error: "Gemini quota exceeded. Please wait a moment.", status: 429 },
+          { status: 429 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Gemini API failed", status: response.status, details: text },
         { status: 500 }
@@ -84,7 +91,7 @@ Return ONLY JSON:
     console.log("[proctor] Gemini Response Data:", JSON.stringify(geminiData).slice(0, 500));
 
     const textResponse =
-    geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
     if (!textResponse) {
       console.error("[proctor] Gemini returned empty text. FinishReason:", geminiData?.candidates?.[0]?.finishReason);
@@ -100,33 +107,33 @@ Return ONLY JSON:
       const cleaned = textResponse.replace(/```json|```/g, "").trim();
       analysis = JSON.parse(cleaned);
     } catch {
-    return NextResponse.json(
+      return NextResponse.json(
         { error: "Failed to parse Gemini JSON", raw: textResponse },
         { status: 500 }
-    );
+      );
     }
 
     // Generate warnings based on analysis
     const warnings: string[] = [];
 
     if (analysis.lookingAway) {
-    warnings.push("Please keep your eyes on the screen.");
+      warnings.push("Please keep your eyes on the screen.");
     }
 
     if (analysis.phoneDetected) {
-    warnings.push("Phone detected. Please remove it from the desk.");
+      warnings.push("Phone detected. Please remove it from the desk.");
     }
 
     if (analysis.multiplePeople) {
-    warnings.push("Multiple people detected in the frame.");
+      warnings.push("Multiple people detected in the frame.");
     }
 
     if (!analysis.faceVisible) {
-    warnings.push("Your face is not clearly visible.");
+      warnings.push("Your face is not clearly visible.");
     }
 
     if (analysis.adjustmentsNeeded) {
-    warnings.push(`Adjustment needed: ${analysis.adjustmentsNeeded}`);
+      warnings.push(`Adjustment needed: ${analysis.adjustmentsNeeded}`);
     }
     if (warnings.length > 0) {
       const flags = [];
@@ -178,7 +185,7 @@ Return ONLY JSON:
       success: true,
       analysis,
       warnings,
-      model: "gemini-3-flash-preview"
+      model: "gemini-1.5-flash"
     });
 
   } catch (error: any) {
