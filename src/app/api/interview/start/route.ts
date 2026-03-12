@@ -1,6 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
+// Models that support context caching, in order of preference
+const CACHE_MODEL_CANDIDATES = [
+  process.env.GEMINI_INTERVIEW_MODEL,
+  "gemini-2.0-flash-001",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash-001",
+  "gemini-1.5-pro-001",
+].filter((m): m is string => Boolean(m));
+
+async function findCachingModel(apiKey: string): Promise<string | null> {
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    );
+    if (!res.ok) return null;
+
+    const payload = (await res.json()) as {
+      models?: { name?: string; supportedGenerationMethods?: string[] }[];
+    };
+
+    const available = new Set(
+      (payload.models || [])
+        .filter((m) => m.supportedGenerationMethods?.includes("createCachedContent"))
+        .map((m) => m.name?.replace(/^models\//, ""))
+        .filter(Boolean) as string[]
+    );
+
+    return CACHE_MODEL_CANDIDATES.find((m) => available.has(m)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const PERSONAS: Record<string, string> = {
   software: "You are a senior engineering manager conducting a technical and behavioral interview for a Software Engineering role. Focus on algorithms, system design, and coding best practices.",
   cyber: "You are a Chief Information Security Officer (CISO) conducting an interview for a Cybersecurity role. Focus on security principles, threat modeling, and incident response.",
@@ -51,8 +84,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
     }
 
+    const cacheModel = await findCachingModel(apiKey);
+    if (!cacheModel) {
+      return NextResponse.json(
+        { error: "No Gemini model available for context caching on this API key" },
+        { status: 503 }
+      );
+    }
+
     const cachePayload = {
-      model: "models/gemini-1.5-flash-001",
+      model: `models/${cacheModel}`,
       contents: [
         {
           role: "user",
@@ -70,21 +111,65 @@ export async function POST(req: NextRequest) {
       ttl: "3600s" // 1 hour expiration
     };
 
-    // 6. Make POST request to Gemini CachedContents API
-    const cacheResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cachePayload)
-    });
+    // 6. Attempt Gemini CachedContents API; fall back to inline context if content is too small.
+    // Gemini requires >= 4096 tokens. Rough estimate: 1 token ≈ 4 chars; skip the network round-trip
+    // when the combined context is clearly below that threshold.
+    const MIN_CACHE_CHARS = 4096 * 4; // ~16 kB ≈ 4096 tokens
+    const combinedContextLength =
+      (resumeRecord.parsed_text?.length ?? 0) + job_description.length + personaPrompt.length;
 
-    if (!cacheResponse.ok) {
-      const errorData = await cacheResponse.text();
-      console.error("Gemini Cache API Error:", errorData);
-      return NextResponse.json({ error: "Failed to initialize Gemini Context Cache" }, { status: cacheResponse.status });
+    let cacheResponse: Response | null = null;
+    if (combinedContextLength >= MIN_CACHE_CHARS) {
+      cacheResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cachePayload),
+        }
+      );
     }
 
-    const cacheData = await cacheResponse.json();
-    const geminiCacheId = cacheData.name; // This is the ID we use in subsequent requests
+    let geminiCacheId: string;
+
+    if (cacheResponse === null) {
+      // Skipped cache attempt — context too small; use inline fallback directly
+      const inlineContext = Buffer.from(
+        JSON.stringify({
+          systemPrompt: personaPrompt,
+          resumeText: resumeRecord.parsed_text,
+          jobDescription: job_description,
+        })
+      ).toString("base64");
+      geminiCacheId = `direct|||${cacheModel}|||${inlineContext}`;
+    } else if (!cacheResponse.ok) {
+      const errorText = await cacheResponse.text();
+      console.warn("Gemini Cache API Error:", errorText);
+
+      let isTooSmall = false;
+      try {
+        isTooSmall = JSON.parse(errorText)?.error?.message?.includes("too small") ?? false;
+      } catch { /* ignore */ }
+
+      if (!isTooSmall) {
+        // Genuine cache failure — surface the error
+        return NextResponse.json({ error: "Failed to initialize Gemini Context Cache" }, { status: cacheResponse.status });
+      }
+
+      // Content was too small for caching — store context inline instead
+      const inlineContext = Buffer.from(
+        JSON.stringify({
+          systemPrompt: personaPrompt,
+          resumeText: resumeRecord.parsed_text,
+          jobDescription: job_description,
+        })
+      ).toString("base64");
+      geminiCacheId = `direct|||${cacheModel}|||${inlineContext}`;
+    } else {
+      const cacheData = await cacheResponse.json();
+      // Store as "modelName|||cacheName" so question/respond routes use the same model
+      geminiCacheId = `${cacheModel}|||${cacheData.name}`;
+    }
 
     // 7. Store the Initialized Session in Supabase `interviews` table
     const { data: interviewRecord, error: insertError } = await supabase

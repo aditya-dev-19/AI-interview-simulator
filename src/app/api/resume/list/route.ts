@@ -5,16 +5,28 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient();
 
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
     /* -------------------------
        1. Validate query params
     -------------------------- */
 
-    const userId = req.nextUrl.searchParams.get("userId");
+    const userId = req.nextUrl.searchParams.get("userId") || user.id;
 
-    if (!userId) {
+    if (userId !== user.id) {
       return NextResponse.json(
-        { error: "userId query parameter is required" },
-        { status: 400 }
+        { error: "Forbidden" },
+        { status: 403 }
       );
     }
 

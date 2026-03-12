@@ -1,12 +1,41 @@
 "use client";
 
 import React from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Play, Activity, BrainCircuit, TrendingDown, Lightbulb } from 'lucide-react';
 import { SkillBar } from '@/components/ui/SkillBar';
 import { SessionRow } from '@/components/ui/SessionRow';
 
+interface Session {
+  id: string
+  role: string
+  overall: number
+  trustScore: number
+  created_at: string
+}
+
 export default function DashboardView() {
+
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const res = await fetch("/api/interview/recent");
+        const data = await res.json();
+
+        setSessions(data.sessions || []);
+      } catch (err) {
+        console.error("Failed to fetch sessions", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSessions();
+  }, []);
   return (
     <div className="p-10 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
@@ -92,9 +121,37 @@ export default function DashboardView() {
       <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-2xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Recent Sessions</h3>
         <div className="space-y-3">
-          <SessionRow role="Senior Frontend Engineer" date="Today, 10:00 AM" score={92} trust={100} />
+          {/* <SessionRow role="Senior Frontend Engineer" date="Today, 10:00 AM" score={92} trust={100} />
           <SessionRow role="Full Stack Developer" date="Oct 22, 2:30 PM" score={85} trust={95} />
-          <SessionRow role="React Developer" date="Oct 18, 11:15 AM" score={78} trust={80} flagged />
+          <SessionRow role="React Developer" date="Oct 18, 11:15 AM" score={78} trust={80} flagged /> */}
+          {loading && (
+            <p className="text-zinc-500 text-sm">Loading sessions...</p>
+          )}
+
+          {sessions.map((session) => {
+
+            const date = new Date(session.created_at).toLocaleString("en-US", {
+              month: "short",
+              day: "numeric",
+              hour: "numeric",
+              minute: "2-digit"
+            });
+
+            return (
+              <SessionRow
+                key={session.id}
+                role={session.role}
+                date={date}
+                score={session.overall}
+                trust={session.trustScore}
+                flagged={session.trustScore < 85}
+              />
+            );
+          })}
+
+          {!loading && sessions.length === 0 && (
+            <p className="text-zinc-500 text-sm">No sessions yet.</p>
+          )}
         </div>
       </div>
     </div>

@@ -96,12 +96,17 @@ export async function DELETE(req: NextRequest) {
     -------------------------- */
 
     if (resume.file_url) {
-      const path = resume.file_url.split("/resumes/")[1];
+      const path = resume.file_url?.split("/resumes/").pop();
+      // const path = resume.file_url?.split("/resumes/")[1];
 
       if (path) {
-        await supabase.storage
+        const { error: storageError } = await supabase.storage
           .from("resumes")
           .remove([path]);
+
+        if (storageError) {
+          console.warn("Storage delete failed:", storageError);
+        }
       }
     }
 
@@ -112,7 +117,8 @@ export async function DELETE(req: NextRequest) {
     const { error } = await supabase
       .from("resumes")
       .delete()
-      .eq("id", id);
+      .eq("id", id)
+      .eq("user_id", user.id);
 
     if (error) {
       console.error("Delete error:", error);
