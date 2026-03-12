@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Lightbulb, Mail, Sparkles } from 'lucide-react';
-import { callGemini } from '../../lib/gemini';
+import { callGemini } from '../../../lib/gemini';
 
 export default function FeedbackView() {
   const router = useRouter();
