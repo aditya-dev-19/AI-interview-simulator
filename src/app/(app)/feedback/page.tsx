@@ -1,14 +1,26 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { callGemini } from '../../../lib/gemini';
+import { createClient } from '@/utils/supabase/client';
 
 export default function FeedbackView() {
   const router = useRouter();
+  const supabase = createClient();
   const [draftEmail, setDraftEmail] = useState("");
   const [isDrafting, setIsDrafting] = useState(false);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/auth');
+      }
+    };
+    checkUser();
+  }, [supabase, router]);
 
   const handleDraftEmail = async () => {
     setIsDrafting(true);

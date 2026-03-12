@@ -2,37 +2,34 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
 // Models that support context caching, in order of preference
-const CACHE_MODEL_CANDIDATES = [
-  process.env.GEMINI_INTERVIEW_MODEL,
-  "gemini-2.0-flash-001",
-  "gemini-2.0-flash",
-  "gemini-1.5-flash-001",
-  "gemini-1.5-pro-001",
-].filter((m): m is string => Boolean(m));
+// const CACHE_MODEL_CANDIDATES = [
+//   process.env.GEMINI_INTERVIEW_MODEL,
+//   "gemini-2.5-flash",
+// ].filter((m): m is string => Boolean(m));
 
-async function findCachingModel(apiKey: string): Promise<string | null> {
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
-    );
-    if (!res.ok) return null;
+// async function findCachingModel(apiKey: string): Promise<string | null> {
+//   try {
+//     const res = await fetch(
+//       `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+//     );
+//     if (!res.ok) return null;
 
-    const payload = (await res.json()) as {
-      models?: { name?: string; supportedGenerationMethods?: string[] }[];
-    };
+//     const payload = (await res.json()) as {
+//       models?: { name?: string; supportedGenerationMethods?: string[] }[];
+//     };
 
-    const available = new Set(
-      (payload.models || [])
-        .filter((m) => m.supportedGenerationMethods?.includes("createCachedContent"))
-        .map((m) => m.name?.replace(/^models\//, ""))
-        .filter(Boolean) as string[]
-    );
+//     const available = new Set(
+//       (payload.models || [])
+//         .filter((m) => m.supportedGenerationMethods?.includes("createCachedContent"))
+//         .map((m) => m.name?.replace(/^models\//, ""))
+//         .filter(Boolean) as string[]
+//     );
 
-    return CACHE_MODEL_CANDIDATES.find((m) => available.has(m)) ?? null;
-  } catch {
-    return null;
-  }
-}
+//     return CACHE_MODEL_CANDIDATES.find((m) => available.has(m)) ?? null;
+//   } catch {
+//     return null;
+//   }
+// }
 
 const PERSONAS: Record<string, string> = {
   software: "You are a senior engineering manager conducting a technical and behavioral interview for a Software Engineering role. Focus on algorithms, system design, and coding best practices.",
@@ -84,13 +81,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
     }
 
-    const cacheModel = await findCachingModel(apiKey);
-    if (!cacheModel) {
-      return NextResponse.json(
-        { error: "No Gemini model available for context caching on this API key" },
-        { status: 503 }
-      );
-    }
+    const cacheModel = process.env.GEMINI_INTERVIEW_MODEL || "gemini-2.5-flash";
+    // if (!cacheModel) {
+    //   return NextResponse.json(
+    //     { error: "No Gemini model available for context caching on this API key" },
+    //     { status: 503 }
+    //   );
+    // }
 
     const cachePayload = {
       model: `models/${cacheModel}`,

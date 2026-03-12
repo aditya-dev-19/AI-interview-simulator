@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Clock, Bot, User, AlertOctagon, ShieldCheck, MessageSquare, List, Mic, CheckCircle2 } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 
 export default function InterviewRoom() {
   const router = useRouter();
+  const supabase = createClient();
   const [aiState, setAiState] = useState('speaking'); // speaking, listening, processing
   const [proctoringFlags, setProctoringFlags] = useState<{ time: string, reason: string }[]>([]);
   const [showWarning, setShowWarning] = useState(false);
@@ -19,6 +21,16 @@ export default function InterviewRoom() {
     { role: 'user', text: "Yes, I'm ready. Thanks for having me." },
     { role: 'ai', text: "I see on your resume you've used WebSockets extensively. Can you walk me through a specific challenge you faced handling high-frequency socket events, and how you resolved it?" }
   ]);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/auth');
+      }
+    };
+    checkUser();
+  }, [supabase, router]);
 
   // Simulate webcam stream
   useEffect(() => {
