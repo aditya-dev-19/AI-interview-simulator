@@ -16,8 +16,10 @@ export function Sidebar() {
   
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    router.push('/auth');
+
+    router.replace("/auth");
   };
+
   React.useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -36,7 +38,13 @@ export function Sidebar() {
     };
 
     fetchUser();
-  }, []);
+  }, [supabase]);
+
+  // Hide sidebar on specific pages
+  if (pathname.startsWith('/interviewer') || pathname.startsWith('/feedback')) {
+    return null;
+  }
+
   return (
     <nav className="w-64 border-r border-zinc-800/60 bg-zinc-950/50 flex flex-col justify-between z-20 relative">
       <div>

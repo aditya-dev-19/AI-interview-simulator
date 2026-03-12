@@ -18,7 +18,7 @@ export default function AuthView() {
       const { data } = await supabase.auth.getUser();
 
       if (data.user) {
-        router.push("/dashboard");
+        router.replace("/dashboard");
       }
     };
 
@@ -33,6 +33,7 @@ export default function AuthView() {
       if (isLogin) {
         const res = await fetch("/api/auth/login", {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -44,7 +45,7 @@ export default function AuthView() {
 
         if (!res.ok) throw new Error(data.error);
 
-        router.push("/dashboard");
+        router.replace("/dashboard");
       } else {
         const res = await fetch("/api/auth/signup", {
           method: "POST",
@@ -62,7 +63,7 @@ export default function AuthView() {
 
         if (!res.ok) throw new Error(data.error);
 
-        router.push("/dashboard");
+        router.replace("/dashboard");
       }
     } catch (err: any) {
       alert(err.message);

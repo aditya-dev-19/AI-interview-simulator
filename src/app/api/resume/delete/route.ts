@@ -96,8 +96,8 @@ export async function DELETE(req: NextRequest) {
     -------------------------- */
 
     if (resume.file_url) {
-      const path = resume.file_url?.split("/resumes/").pop();
-      // const path = resume.file_url?.split("/resumes/")[1];
+      const url = new URL(resume.file_url);
+      const path = url.pathname.replace("/storage/v1/object/public/resumes/", "");
 
       if (path) {
         const { error: storageError } = await supabase.storage

@@ -4,8 +4,12 @@ import React, { useState, useRef } from 'react';
 import { UploadCloud, AlertCircle, X } from 'lucide-react';
 import { ResumeRow } from '@/components/ui/ResumeRow';
 import { useEffect } from "react";
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 
 export default function ResumeView() {
+  const router = useRouter();
+  const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [resumes, setResumes] = useState<any[]>([]);
@@ -17,8 +21,15 @@ export default function ResumeView() {
 
 
   useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/auth');
+      }
+    };
+    checkUser();
     fetchResumes();
-  }, []);
+  }, [supabase, router]);
 
   const fetchResumes = async () => {
     try {
@@ -76,8 +87,8 @@ export default function ResumeView() {
         return;
       }
 
-      setResumes(prev => prev.filter(r => r.id !== id));
-
+      // setResumes(prev => prev.filter(r => r.id !== id));
+      await fetchResumes();
     } catch (err) {
       console.error(err);
       setError("Failed to delete resume");
