@@ -14,7 +14,7 @@ try {
 const PROXY_PORT = Number(process.env.INTERVIEW_STREAM_PROXY_PORT || 8081);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_LIVE_MODEL =
-  process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
+  process.env.GEMINI_LIVE_MODEL || 'gemini-2.0-flash';
 const GEMINI_WS_BASE =
   'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
 
@@ -53,7 +53,11 @@ async function createGeminiSocket({ tag, systemInstruction }) {
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Gemini WS open timeout (10s)')), 10000);
     geminiSocket.once('open', () => { clearTimeout(timeout); resolve(); });
-    geminiSocket.once('error', () => { clearTimeout(timeout); reject(new Error('Failed to open Gemini WebSocket')); });
+    geminiSocket.once('error', (err) => { 
+      clearTimeout(timeout); 
+      console.error(`${tag} ❌ Gemini Socket Error:`, err);
+      reject(new Error('Failed to open Gemini WebSocket')); 
+    });
   });
 
   const setupMessage = {
@@ -77,7 +81,7 @@ async function createGeminiSocket({ tag, systemInstruction }) {
         automaticActivityDetection: {
           disabled: false,
           prefixPaddingMs: 200,
-          silenceDurationMs: 800,
+          silenceDurationMs: 500,
         },
       },
     },
@@ -93,8 +97,16 @@ async function createGeminiSocket({ tag, systemInstruction }) {
           geminiSocket.off('message', onMsg);
           console.log(`${tag} ✅ Gemini setupComplete received`);
           resolve();
+        } else if (msg?.error) {
+          console.error(`${tag} ❌ Gemini setup error:`, JSON.stringify(msg.error, null, 2));
+          clearTimeout(timeout);
+          reject(new Error(`Gemini setup error: ${msg.error.message || 'Unknown error'}`));
+        } else {
+          console.debug(`${tag} ℹ Gemini message during setup:`, typeof msg === 'object' ? Object.keys(msg) : msg);
         }
-      } catch { /* ignore non-JSON frames */ }
+      } catch (err) { 
+        console.warn(`${tag} ⚠ Non-JSON frame during setup:`, data.toString().slice(0, 100));
+      }
     };
     console.log(`${tag} → sending setup frame`);
     geminiSocket.send(JSON.stringify(setupMessage));
@@ -214,11 +226,11 @@ wss.on('connection', async (clientSocket, req) => {
           }
         }
       }
-      if (sc?.turnComplete)              console.log(`${tag} ✔ turnComplete (audio frames: ${geminiAudioFrames})`);
-      if (sc?.interrupted)               console.log(`${tag} ⚡ Gemini interrupted`);
-      if (sc?.inputTranscription?.text)  console.log(`${tag} 👤 user: "${sc.inputTranscription.text}"`);
+      if (sc?.turnComplete) console.log(`${tag} ✔ turnComplete (audio frames: ${geminiAudioFrames})`);
+      if (sc?.interrupted) console.log(`${tag} ⚡ Gemini interrupted`);
+      if (sc?.inputTranscription?.text) console.log(`${tag} 👤 user: "${sc.inputTranscription.text}"`);
       if (sc?.outputTranscription?.text) console.log(`${tag} 🤖 AI:   "${sc.outputTranscription.text}"`);
-      if (msg?.error)                    console.warn(`${tag} ⚠ Gemini error:`, msg.error);
+      if (msg?.error) console.warn(`${tag} ⚠ Gemini error:`, msg.error);
     } catch { /* non-JSON / binary — relay without logging */ }
     clientSocket.send(message, { binary: isBinary });
   });
