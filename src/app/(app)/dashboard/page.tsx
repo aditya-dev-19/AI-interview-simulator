@@ -1,11 +1,12 @@
 "use client";
 
-import React from 'react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Play, Activity, BrainCircuit, TrendingDown, Lightbulb } from 'lucide-react';
 import { SkillBar } from '@/components/ui/SkillBar';
 import { SessionRow } from '@/components/ui/SessionRow';
+import { createClient } from '@/utils/supabase/client';
 
 interface Session {
   id: string
@@ -16,9 +17,21 @@ interface Session {
 }
 
 export default function DashboardView() {
+  const router = useRouter();
+  const supabase = createClient();
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/auth');
+      }
+    };
+    checkUser();
+  }, [supabase, router]);
 
   useEffect(() => {
     const fetchSessions = async () => {
