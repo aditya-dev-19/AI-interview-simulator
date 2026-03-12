@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Clock, Bot, User, AlertOctagon, ShieldCheck, MessageSquare, List, Mic, MicOff, CheckCircle2 } from 'lucide-react';
 import { createGeminiLiveClient, type GeminiLiveClient } from '@/lib/gemini';
+import { Logo } from '@/components/ui/Logo';
 
 const VAD_BASE_ASSET_PATH = 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/';
 const VAD_ONNX_WASM_BASE_PATH = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
@@ -27,6 +28,11 @@ export default function InterviewRoom() {
   const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(15);
   const [sidebarTab, setSidebarTab] = useState('transcript'); // 'transcript' or 'telemetry'
+  const INTERVIEW_DURATION = 15 * 60; // 15 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState(INTERVIEW_DURATION);
+  const [hasCameraAccess, setHasCameraAccess] = useState<boolean | null>(null);
+  const [hasMicAccess, setHasMicAccess] = useState<boolean | null>(null);
+  const [lastProctorStatus, setLastProctorStatus] = useState<'scanning' | 'safe' | 'flagged' | 'idle'>('idle');
   const [chatHistory, setChatHistory] = useState([
     { role: 'ai', text: "Connecting to live session… Please allow microphone access when prompted." }
   ]);
@@ -36,20 +42,121 @@ export default function InterviewRoom() {
   const vadRef = useRef<MicVadController | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
+  const captureFrame = () => {
+    if (!videoRef.current) return null;
+
+    const video = videoRef.current;
+    const canvas = document.createElement("canvas");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    ctx?.drawImage(video, 0, 0);
+
+    return canvas.toDataURL("image/jpeg", 0.6);
+  };
+
   // Auto-scroll transcript to bottom whenever a new message arrives
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          endInterviewSession();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
   // Simulate webcam stream
+  useEffect(() => {
+    if (!interviewId) return;
+
+    const interval = setInterval(async () => {
+      const frame = captureFrame();
+      if (!frame) return;
+
+      try {
+        setLastProctorStatus('scanning');
+        const res = await fetch("/api/proctor", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            image: frame,
+            interview_id: interviewId,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Proctor API error:", data);
+          setLastProctorStatus('idle');
+          return;
+        }
+
+        console.debug("[proctor] analysis received:", data.analysis);
+
+        if (data.warnings?.length > 0) {
+          setShowWarning(true);
+
+          setProctoringFlags(prev => [
+            ...prev,
+            {
+              time: new Date().toLocaleTimeString([], { hour12: false }),
+              reason: data.warnings.join(", "),
+            },
+          ]);
+
+          setSidebarTab("telemetry");
+
+          setTimeout(() => setShowWarning(false), 4000);
+          setLastProctorStatus('flagged');
+        } else {
+          setLastProctorStatus('safe');
+          setProctoringFlags(prev => [
+            ...prev,
+            {
+              time: new Date().toLocaleTimeString([], { hour12: false }),
+              reason: "Frame verified: No issues detected.",
+            },
+          ]);
+        }
+
+      } catch (err) {
+        console.error("Proctor request failed:", err);
+        setLastProctorStatus('idle');
+      }
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(interval);
+  }, [interviewId]);
+
   useEffect(() => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
           webcamStreamRef.current = stream;
           if (videoRef.current) videoRef.current.srcObject = stream;
+          setHasCameraAccess(true);
         })
-        .catch(err => console.log("Webcam access denied", err));
+        .catch(err => {
+          console.log("Webcam access denied", err);
+          setHasCameraAccess(false);
+        });
+    } else {
+      setHasCameraAccess(false);
     }
 
     return () => {
@@ -117,7 +224,19 @@ export default function InterviewRoom() {
       console.warn('Pre-VAD failed to initialize. Falling back to built-in mic interrupt logic.', error);
     }
   };
+  function formatTime(seconds: number) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  }
+  function endInterviewSession() {
+    console.log("Interview finished");
 
+    vadRef.current?.pause();
+    liveClientRef.current?.disconnect();
+
+    router.push(`/feedback?id=${interviewId}`);
+  }
   const startMic = async () => {
     if (!interviewId) {
       setLiveError('Missing interview id. Please restart from setup page.');
@@ -188,17 +307,20 @@ export default function InterviewRoom() {
         }
       );
 
+      setHasMicAccess(null);
       await client.connect();
       liveClientRef.current = client;
       await startPreVad(client);
       setLiveStatus('connected');
       setAiState('listening');
       setSidebarTab('transcript');
+      setHasMicAccess(true);
     } catch (error) {
       console.error('Failed to start live microphone:', error);
       setLiveStatus('error');
       setLiveError(error instanceof Error ? error.message : 'Failed to start live microphone');
       setAiState('processing');
+      setHasMicAccess(false);
     }
   };
 
@@ -234,6 +356,7 @@ export default function InterviewRoom() {
       {/* Room Header with Progress Bar */}
       <header className="h-16 border-b border-zinc-800 flex items-center px-8 bg-zinc-900/30 shrink-0">
         <div className="flex items-center gap-4 w-1/3">
+          <Logo hideText className="scale-75 origin-left" />
           <div className="flex items-center gap-2 text-emerald-400 bg-emerald-400/10 px-3 py-1.5 rounded-full text-xs font-semibold border border-emerald-400/20">
             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
             Live Session
@@ -243,10 +366,12 @@ export default function InterviewRoom() {
         {/* Central Progress Tracking */}
         <div className="w-1/3 flex flex-col items-center justify-center">
           <div className="flex items-center gap-2 text-xs text-zinc-400 font-medium mb-1.5">
-            <Clock className="w-3.5 h-3.5" /> 12:45 remaining • Question 2 of 5
+            <Clock className="w-3.5 h-3.5" /> {formatTime(timeRemaining)} remaining • Question 2 of 5
           </div>
           <div className="w-full max-w-xs h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+            <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{
+              width: `${((INTERVIEW_DURATION - timeRemaining) / INTERVIEW_DURATION) * 100}%`
+            }}></div>
           </div>
         </div>
 
@@ -361,9 +486,19 @@ export default function InterviewRoom() {
             </div>
 
             {/* Live Proctoring Status on Cam (Bottom Left) */}
-            <div className={`absolute bottom-3 left-3 px-2 py-1 rounded-md backdrop-blur-md text-[10px] flex items-center gap-1.5 font-bold transition-colors ${showWarning ? 'bg-red-500/80 text-white' : 'bg-black/60 text-emerald-400'}`}>
-              {showWarning ? <AlertOctagon className="w-3.5 h-3.5" /> : <ShieldCheck className="w-3.5 h-3.5" />}
-              {showWarning ? 'Focus Lost' : 'Focus Verified'}
+            <div className={`absolute bottom-3 left-3 px-2 py-1 rounded-md backdrop-blur-md text-[10px] flex items-center gap-1.5 font-bold transition-all duration-300 ${
+              lastProctorStatus === 'flagged' ? 'bg-red-500/80 text-white' :
+              lastProctorStatus === 'scanning' ? 'bg-amber-500/80 text-white animate-pulse' :
+              lastProctorStatus === 'safe' ? 'bg-emerald-500/80 text-white' :
+              'bg-black/60 text-emerald-400'
+            }`}>
+              {lastProctorStatus === 'flagged' ? <AlertOctagon className="w-3.5 h-3.5" /> :
+               lastProctorStatus === 'scanning' ? <Bot className="w-3.5 h-3.5" /> :
+               <ShieldCheck className="w-3.5 h-3.5" />}
+
+              {lastProctorStatus === 'flagged' ? 'Focus Lost' :
+               lastProctorStatus === 'scanning' ? 'Scanning…' :
+               lastProctorStatus === 'safe' ? 'Verified' : 'Active'}
             </div>
           </div>
 
@@ -457,15 +592,22 @@ export default function InterviewRoom() {
                   </div>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-xs space-y-3 flex-1 overflow-y-auto">
                     <div className="flex gap-2 text-zinc-500 border-b border-zinc-800/50 pb-2">
-                      <span className="font-mono text-zinc-600">12:40</span>
-                      <span>Baseline snapshot verified.</span>
+                      <span className="font-mono text-zinc-600">START</span>
+                      <span>Baseline snapshot verified. Proctoring active.</span>
                     </div>
                     {proctoringFlags.map((flag, idx) => (
-                      <div key={idx} className="flex gap-2 text-red-400 border border-red-900/30 bg-red-500/5 p-2 rounded animate-in slide-in-from-right-2">
-                        <AlertOctagon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <div key={idx} className={`flex gap-2 p-2 rounded animate-in slide-in-from-right-2 border ${
+                        flag.reason.includes("No issues")
+                          ? 'text-zinc-400 border-zinc-800 bg-zinc-800/20'
+                          : 'text-red-400 border-red-900/30 bg-red-500/5'
+                      }`}>
+                        {flag.reason.includes("No issues")
+                          ? <ShieldCheck className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                          : <AlertOctagon className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                        }
                         <div className="flex flex-col gap-0.5">
                           <span className="font-mono font-semibold">{flag.time}</span>
-                          <span>Flag: {flag.reason}</span>
+                          <span>{flag.reason.includes("No issues") ? flag.reason : `Flag: ${flag.reason}`}</span>
                         </div>
                       </div>
                     ))}
@@ -484,6 +626,55 @@ export default function InterviewRoom() {
           </div>
         </div>
       </div>
+      {/* PERMISSION BLOCKING OVERLAY */}
+      {(hasCameraAccess === false || hasMicAccess === false) && (
+        <div className="absolute inset-0 z-[100] bg-zinc-950/90 backdrop-blur-md flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">
+          <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6 border border-red-500/30">
+            <AlertOctagon className="w-10 h-10 text-red-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-4">Permissions Required</h2>
+          <div className="text-zinc-400 max-w-md leading-relaxed space-y-4 mb-8">
+            <p>
+              To ensure a secure and interactive interview experience, both{" "}
+              <span className="text-white font-semibold">camera</span> and{" "}
+              <span className="text-white font-semibold">microphone</span> access are mandatory.
+            </p>
+
+            <p>
+              Please enable camera and microphone access in your browser settings.
+            </p>
+
+            <p className="text-sm text-zinc-500">
+              Audio and video recording will be used for proctoring purposes only.
+            </p>
+          </div>
+          <div className="flex flex-col gap-4 w-full max-w-xs">
+            <div className={`flex items-center justify-between p-4 rounded-xl border ${hasCameraAccess === false ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+              <div className="flex items-center gap-3">
+                <User className="w-5 h-5" />
+                <span className="font-semibold text-sm">Camera Access</span>
+              </div>
+              {hasCameraAccess === false ? <AlertOctagon className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+            </div>
+            <div className={`flex items-center justify-between p-4 rounded-xl border ${hasMicAccess === false ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'}`}>
+              <div className="flex items-center gap-3">
+                <Mic className="w-5 h-5" />
+                <span className="font-semibold text-sm">Microphone Access</span>
+              </div>
+              {hasMicAccess === false ? <AlertOctagon className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+            </div>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-10 bg-emerald-600 hover:bg-emerald-500 text-white px-8 py-3 rounded-full font-bold transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:scale-105 active:scale-95 text-sm uppercase tracking-widest"
+          >
+            Grant Permissions & Retry
+          </button>
+          <p className="mt-6 text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+            Sarah AI is waiting for you
+          </p>
+        </div>
+      )}
     </div>
   );
 }
