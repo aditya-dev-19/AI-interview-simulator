@@ -1,47 +1,188 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Clock, Bot, User, AlertOctagon, ShieldCheck, MessageSquare, List, Mic, CheckCircle2 } from 'lucide-react';
-import { createClient } from '@/utils/supabase/client';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Clock, Bot, User, AlertOctagon, ShieldCheck, MessageSquare, List, Mic, MicOff, CheckCircle2 } from 'lucide-react';
+import { createGeminiLiveClient, type GeminiLiveClient } from '@/lib/gemini';
+
+const VAD_BASE_ASSET_PATH = 'https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.30/dist/';
+const VAD_ONNX_WASM_BASE_PATH = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.22.0/dist/';
+
+type MicVadController = {
+  start: () => void;
+  pause: () => void;
+  listening: boolean;
+};
 
 export default function InterviewRoom() {
   const router = useRouter();
-  const supabase = createClient();
+  const searchParams = useSearchParams();
+  const interviewId = searchParams.get('id');
+
   const [aiState, setAiState] = useState('speaking'); // speaking, listening, processing
+  const [liveStatus, setLiveStatus] = useState<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const [liveError, setLiveError] = useState<string | null>(null);
   const [proctoringFlags, setProctoringFlags] = useState<{ time: string, reason: string }[]>([]);
   const [showWarning, setShowWarning] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
   const [progress, setProgress] = useState(15);
   const [sidebarTab, setSidebarTab] = useState('transcript'); // 'transcript' or 'telemetry'
   const videoRef = useRef<HTMLVideoElement>(null);
+  const webcamStreamRef = useRef<MediaStream | null>(null);
+  const liveClientRef = useRef<GeminiLiveClient | null>(null);
+  const vadRef = useRef<MicVadController | null>(null);
 
   // Chat History State
   const [chatHistory, setChatHistory] = useState([
-    { role: 'ai', text: "Hi Alex! Thanks for joining today. Are you ready to begin your mock interview?" },
-    { role: 'user', text: "Yes, I'm ready. Thanks for having me." },
-    { role: 'ai', text: "I see on your resume you've used WebSockets extensively. Can you walk me through a specific challenge you faced handling high-frequency socket events, and how you resolved it?" }
+    { role: 'ai', text: "Connecting to live session… Please allow microphone access when prompted." }
   ]);
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/auth');
-      }
-    };
-    checkUser();
-  }, [supabase, router]);
 
   // Simulate webcam stream
   useEffect(() => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       navigator.mediaDevices.getUserMedia({ video: true })
         .then(stream => {
+          webcamStreamRef.current = stream;
           if (videoRef.current) videoRef.current.srcObject = stream;
         })
         .catch(err => console.log("Webcam access denied", err));
     }
+
+    return () => {
+      webcamStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
   }, []);
+
+  // Auto-connect as soon as the page mounts (or once interviewId is available)
+  useEffect(() => {
+    startMic();
+    return () => {
+      vadRef.current?.pause();
+      vadRef.current = null;
+      void liveClientRef.current?.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interviewId]);
+
+  const toggleMute = () => {
+    const next = !isMuted;
+    setIsMuted(next);
+    liveClientRef.current?.setMuted(next);
+  };
+
+  const startPreVad = async (client: GeminiLiveClient) => {
+    const stream = client.getMicrophoneStreamClone();
+    if (!stream) {
+      return;
+    }
+
+    if (vadRef.current) {
+      vadRef.current.pause();
+      vadRef.current = null;
+    }
+
+    try {
+      const { MicVAD } = await import('@ricky0123/vad-web');
+      const vad = await MicVAD.new({
+        baseAssetPath: VAD_BASE_ASSET_PATH,
+        onnxWASMBasePath: VAD_ONNX_WASM_BASE_PATH,
+        getStream: async () => stream,
+        pauseStream: async (vadStream: MediaStream) => {
+          vadStream.getTracks().forEach((track) => track.stop());
+        },
+        onSpeechRealStart: () => {
+          client.handleSpeechStart();
+          setAiState('listening');
+        },
+        onSpeechEnd: () => {
+          client.handleSpeechEnd();
+        },
+        positiveSpeechThreshold: 0.6,
+        negativeSpeechThreshold: 0.45,
+        minSpeechMs: 420,
+        redemptionMs: 900,
+        preSpeechPadMs: 120,
+      });
+
+      vad.start();
+      vadRef.current = vad;
+    } catch (error) {
+      stream.getTracks().forEach((track) => track.stop());
+      console.warn('Pre-VAD failed to initialize. Falling back to built-in mic interrupt logic.', error);
+    }
+  };
+
+  const startMic = async () => {
+    if (!interviewId) {
+      setLiveError('Missing interview id. Please restart from setup page.');
+      return;
+    }
+
+    try {
+      setLiveError(null);
+      setLiveStatus('connecting');
+      setAiState('processing');
+
+      if (liveClientRef.current) {
+        await liveClientRef.current.disconnect();
+      }
+
+      const client = createGeminiLiveClient(
+        interviewId,
+        {
+          onStateChange: (state) => {
+            if (state === 'connecting') setAiState('processing');
+            if (state === 'listening') setAiState('listening');
+            if (state === 'speaking') setAiState('speaking');
+            if (state === 'error') {
+              setLiveStatus('error');
+              setAiState('processing');
+            }
+          },
+          onDebug: (payload) => {
+            const p = payload as Record<string, unknown>;
+            const sc = p?.serverContent as Record<string, unknown> | undefined;
+            if (sc?.turnComplete)   console.debug('[gemini] turnComplete');
+            if (sc?.interrupted)    console.debug('[gemini] interrupted');
+            if ((sc?.inputTranscription  as Record<string,unknown>)?.text) console.debug('[gemini] user transcript:', (sc?.inputTranscription  as Record<string,unknown>)?.text);
+            if ((sc?.outputTranscription as Record<string,unknown>)?.text) console.debug('[gemini] AI transcript:  ', (sc?.outputTranscription as Record<string,unknown>)?.text);
+            const parts = (sc?.modelTurn as Record<string,unknown>)?.parts as Array<Record<string,unknown>> | undefined;
+            if (parts) {
+              const audioParts = parts.filter(pt => String((pt?.inlineData as Record<string,unknown>)?.mimeType ?? '').startsWith('audio/pcm'));
+              if (audioParts.length > 0) console.debug(`[gemini] 🔊 ${audioParts.length} audio PCM part(s) received`);
+            }
+            if (p?.error) console.warn('[gemini] error from server:', p.error);
+          },
+          onTranscript: (role, text) => {
+            if (!text?.trim()) return;
+            const mappedRole = role === 'ai' ? 'ai' : 'user';
+            setChatHistory((prev) => [...prev, { role: mappedRole, text }]);
+            if (mappedRole === 'user') setAiState('processing');
+          },
+          onError: (message) => {
+            setLiveStatus('error');
+            setLiveError(message);
+          },
+        },
+        {
+          rmsThreshold: 0.015,
+          silenceHangoverMs: 350,
+        }
+      );
+
+      liveClientRef.current = client;
+      await client.connect();
+      await startPreVad(client);
+      setLiveStatus('connected');
+      setAiState('listening');
+      setSidebarTab('transcript');
+    } catch (error) {
+      console.error('Failed to start live microphone:', error);
+      setLiveStatus('error');
+      setLiveError(error instanceof Error ? error.message : 'Failed to start live microphone');
+      setAiState('processing');
+    }
+  };
 
   // Hackathon trigger: Simulate Out-of-camera Warning
   const triggerWarning = () => {
@@ -91,12 +232,39 @@ export default function InterviewRoom() {
           </div>
         </div>
 
-        <div className="w-1/3 flex justify-end">
+        <div className="w-1/3 flex justify-end items-center gap-3">
+          {/* Connection status badge — replaces the old Start/Stop Mic button */}
+          <div className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+            isMuted
+              ? 'bg-red-500/10 text-red-400 border-red-400/20'
+              : liveStatus === 'connected'
+              ? 'bg-emerald-500/10 text-emerald-400 border-emerald-400/20'
+              : liveStatus === 'connecting'
+              ? 'bg-amber-500/10 text-amber-400 border-amber-400/20'
+              : liveStatus === 'error'
+              ? 'bg-red-500/10 text-red-400 border-red-400/20'
+              : 'bg-zinc-800 text-zinc-400 border-zinc-700'
+          }`}>
+            {isMuted
+              ? <MicOff className="w-3.5 h-3.5" />
+              : <Mic className={`w-3.5 h-3.5 ${liveStatus === 'connected' ? 'animate-pulse' : liveStatus === 'connecting' ? 'opacity-60' : ''}`} />
+            }
+            {isMuted ? 'Muted' :
+             liveStatus === 'connected' ? 'Mic Active' :
+             liveStatus === 'connecting' ? 'Connecting…' :
+             liveStatus === 'error' ? 'Mic Error' : 'Mic Off'}
+          </div>
           <button onClick={() => router.push('/feedback')} className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-zinc-700">
             End Session
           </button>
         </div>
       </header>
+
+      {liveError && (
+        <div className="mx-8 mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+          {liveError}
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden relative">
 
@@ -136,6 +304,30 @@ export default function InterviewRoom() {
               <Bot className="w-3.5 h-3.5 text-emerald-400" />
               Sarah (AI Recruiter)
             </div>
+          </div>
+
+          {/* Floating mic mute control */}
+          <div className="flex flex-col items-center gap-2 mt-6">
+            <button
+              onClick={toggleMute}
+              disabled={liveStatus !== 'connected'}
+              className={`relative flex items-center gap-2.5 px-5 py-2.5 rounded-full text-sm font-semibold border transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed ${
+                isMuted
+                  ? 'bg-red-500/15 border-red-500/40 text-red-400 hover:bg-red-500/25 shadow-[0_0_18px_rgba(239,68,68,0.15)]'
+                  : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_18px_rgba(16,185,129,0.1)]'
+              }`}
+            >
+              {isMuted ? (
+                <><MicOff className="w-4 h-4" /> Unmute mic</>
+              ) : (
+                <><Mic className="w-4 h-4 animate-pulse" /> Mute mic</>
+              )}
+            </button>
+            {isMuted && (
+              <span className="text-[10px] text-red-400/70 uppercase tracking-widest font-semibold animate-pulse">
+                Audio paused — Gemini is waiting
+              </span>
+            )}
           </div>
 
           {/* User Webcam Feed (Shifted to corner and resized) */}
@@ -204,10 +396,18 @@ export default function InterviewRoom() {
                   </div>
                 ))}
                 {aiState === 'listening' && (
-                  <div className="flex flex-col items-end animate-pulse mt-2">
-                    <span className="text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">You</span>
-                    <div className="px-4 py-2 bg-emerald-500/5 text-emerald-400/70 border border-emerald-500/10 rounded-2xl rounded-tr-sm text-xs italic flex items-center gap-2">
-                      <Mic className="w-3 h-3" /> Transcribing...
+                  <div className="flex flex-col items-start mt-2">
+                    <span className="text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">Sarah (AI)</span>
+                    <div className="px-4 py-2 bg-zinc-800/40 text-zinc-500 border border-zinc-700/40 rounded-2xl rounded-tl-sm text-xs italic flex items-center gap-2">
+                      <Mic className="w-3 h-3 text-emerald-400 animate-pulse" /> Listening…
+                    </div>
+                  </div>
+                )}
+                {aiState === 'processing' && (
+                  <div className="flex flex-col items-start animate-pulse mt-2">
+                    <span className="text-[10px] font-bold text-zinc-500 mb-1 uppercase tracking-wider">Sarah (AI)</span>
+                    <div className="px-4 py-2 bg-zinc-800/40 text-zinc-500 border border-zinc-700/40 rounded-2xl rounded-tl-sm text-xs italic flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping inline-block" /> Thinking…
                     </div>
                   </div>
                 )}

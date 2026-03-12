@@ -108,16 +108,38 @@ export async function POST(req: NextRequest) {
       ttl: "3600s" // 1 hour expiration
     };
 
-    // 6. Attempt Gemini CachedContents API; fall back to inline context if content is too small
-    const cacheResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cachePayload)
-    });
+    // 6. Attempt Gemini CachedContents API; fall back to inline context if content is too small.
+    // Gemini requires >= 4096 tokens. Rough estimate: 1 token ≈ 4 chars; skip the network round-trip
+    // when the combined context is clearly below that threshold.
+    const MIN_CACHE_CHARS = 4096 * 4; // ~16 kB ≈ 4096 tokens
+    const combinedContextLength =
+      (resumeRecord.parsed_text?.length ?? 0) + job_description.length + personaPrompt.length;
+
+    let cacheResponse: Response | null = null;
+    if (combinedContextLength >= MIN_CACHE_CHARS) {
+      cacheResponse = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/cachedContents?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cachePayload),
+        }
+      );
+    }
 
     let geminiCacheId: string;
 
-    if (!cacheResponse.ok) {
+    if (cacheResponse === null) {
+      // Skipped cache attempt — context too small; use inline fallback directly
+      const inlineContext = Buffer.from(
+        JSON.stringify({
+          systemPrompt: personaPrompt,
+          resumeText: resumeRecord.parsed_text,
+          jobDescription: job_description,
+        })
+      ).toString("base64");
+      geminiCacheId = `direct|||${cacheModel}|||${inlineContext}`;
+    } else if (!cacheResponse.ok) {
       const errorText = await cacheResponse.text();
       console.warn("Gemini Cache API Error:", errorText);
 
@@ -131,8 +153,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Failed to initialize Gemini Context Cache" }, { status: cacheResponse.status });
       }
 
-      // Content too small for caching — store context inline instead
-      console.log("Content too small for Gemini cache; using inline context fallback");
+      // Content was too small for caching — store context inline instead
       const inlineContext = Buffer.from(
         JSON.stringify({
           systemPrompt: personaPrompt,
@@ -140,7 +161,6 @@ export async function POST(req: NextRequest) {
           jobDescription: job_description,
         })
       ).toString("base64");
-
       geminiCacheId = `direct|||${cacheModel}|||${inlineContext}`;
     } else {
       const cacheData = await cacheResponse.json();
