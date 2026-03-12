@@ -12,11 +12,13 @@ export async function GET() {
     return NextResponse.json({ sessions: [] });
   }
 
-  const { data, error } = await supabase
-    .rpc("get_recent_sessions", { user_id_input: user.id });
+  const { data, error } = await supabase.rpc("get_recent_sessions", {
+    user_id_input: user.id
+  });
 
   if (error) {
-    return NextResponse.json({ error }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: "Failed to fetch sessions" }, { status: 500 });
   }
 
   const sessions = data.map((session: any) => {
@@ -25,8 +27,11 @@ export async function GET() {
     return {
       id: session.id,
       role: session.role,
-      overall: session.overall_score,
+      track: session.track,
+      overallScore: session.overall_score,
+      flagCount: session.flag_count,
       trustScore,
+      status: session.status,
       created_at: session.created_at
     };
   });
