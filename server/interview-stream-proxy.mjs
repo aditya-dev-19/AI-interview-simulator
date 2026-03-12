@@ -69,8 +69,8 @@ async function createGeminiSocket({ tag, systemInstruction }) {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } },
         },
       },
-      inputAudioTranscription: {},
-      outputAudioTranscription: {},
+      inputAudioTranscription: { languageCode: 'en-US' },
+      outputAudioTranscription: { languageCode: 'en-US' },
       realtimeInputConfig: {
         activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
         turnCoverage: 'TURN_INCLUDES_ONLY_ACTIVITY',
