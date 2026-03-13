@@ -1,10 +1,9 @@
 /**
  * PCMProcessor — AudioWorkletProcessor
  *
- * Runs in the AudioWorklet thread. Accumulates microphone samples and posts
- * Float32Array chunks to the main thread at roughly `targetChunkMs` intervals
- * (default 120 ms). The main thread then downsamples to PCM-16 at 16 kHz and
- * forwards the bytes to the Gemini Live API.
+ * Runs in the AudioWorklet thread. Accumulates microphone samples, downsamples
+ * to 16 kHz mono PCM16, and posts Int16Array chunks to the main thread at
+ * roughly `targetChunkMs` intervals (default 100 ms).
  *
  * Using AudioWorkletNode (vs the deprecated ScriptProcessorNode) gives us:
  *  • No deprecation warning
@@ -15,11 +14,46 @@
 class PCMProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    const targetMs = options?.processorOptions?.targetChunkMs ?? 120;
-    // sampleRate is a global in AudioWorkletGlobalScope
+    const targetMs = options?.processorOptions?.targetChunkMs ?? 100;
+    // sampleRate is a global in AudioWorkletGlobalScope.
+    // Collect ~targetMs of source-rate audio before converting to 16 kHz PCM16.
     this._targetSamples = Math.round((sampleRate * targetMs) / 1000);
     this._buffer = new Float32Array(this._targetSamples * 2);
     this._writePos = 0;
+  }
+
+  _downsampleTo16kPcm16(float32Data) {
+    if (sampleRate === 16000) {
+      const out = new Int16Array(float32Data.length);
+      for (let i = 0; i < float32Data.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32Data[i]));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return out;
+    }
+
+    const ratio = sampleRate / 16000;
+    const outLength = Math.max(1, Math.round(float32Data.length / ratio));
+    const out = new Int16Array(outLength);
+    let offsetBuffer = 0;
+
+    for (let offsetOut = 0; offsetOut < outLength; offsetOut++) {
+      const nextOffsetBuffer = Math.round((offsetOut + 1) * ratio);
+      let accum = 0;
+      let count = 0;
+
+      for (let i = offsetBuffer; i < nextOffsetBuffer && i < float32Data.length; i++) {
+        accum += float32Data[i];
+        count++;
+      }
+
+      const avg = count > 0 ? accum / count : 0;
+      const s = Math.max(-1, Math.min(1, avg));
+      out[offsetOut] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      offsetBuffer = nextOffsetBuffer;
+    }
+
+    return out;
   }
 
   process(inputs) {
@@ -30,9 +64,10 @@ class PCMProcessor extends AudioWorkletProcessor {
       this._buffer[this._writePos++] = channel[i];
 
       if (this._writePos >= this._targetSamples) {
-        // Transfer ownership of the buffer to the main thread (zero-copy)
-        const chunk = this._buffer.slice(0, this._writePos);
-        this.port.postMessage({ type: 'audio', data: chunk }, [chunk.buffer]);
+        // Convert on the worklet thread and transfer Int16 PCM payload.
+        const floatChunk = this._buffer.slice(0, this._writePos);
+        const pcm16 = this._downsampleTo16kPcm16(floatChunk);
+        this.port.postMessage({ type: 'pcm16', data: pcm16 }, [pcm16.buffer]);
         // Reset — allocate fresh backing buffer for next accumulation
         this._buffer = new Float32Array(this._targetSamples * 2);
         this._writePos = 0;
