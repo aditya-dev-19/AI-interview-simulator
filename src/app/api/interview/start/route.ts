@@ -104,13 +104,22 @@ async function getTokenBreakdown(
 //   }
 // }
 
-const PERSONAS: Record<string, string> = {
-  software: "You are a senior engineering manager conducting a technical and behavioral interview for a Software Engineering role. Focus on algorithms, system design, and coding best practices.",
-  cyber: "You are a Chief Information Security Officer (CISO) conducting an interview for a Cybersecurity role. Focus on security principles, threat modeling, and incident response.",
-  data: "You are a Lead Data Scientist conducting a technical interview. Focus on statistics, machine learning algorithms, and data wrangling.",
-  hr: "You are an HR Director conducting a behavioral interview. Focus on cultural fit, conflict resolution, and soft skills.",
-  default: "You are an expert technical recruiter conducting a professional interview. Ask relevant, challenging questions based on the candidate's experience and the target job description."
-};
+function buildGeneralPersonaPrompt(targetRole: string): string {
+  return `You are a senior interviewer conducting a professional interview for the target role: "${targetRole}".
+
+Adapt your domain expertise, terminology, and question style to this exact role. Use the candidate's resume and job description to infer seniority, core responsibilities, and must-have competencies.
+
+Focus areas:
+- Role-specific technical or functional depth relevant to "${targetRole}"
+- Real project ownership and execution ability
+- Behavioral fit, communication, and decision-making
+
+Questioning rules:
+- Ask one question at a time and wait for a complete response.
+- Prioritize role-critical skills and realistic scenarios tied to "${targetRole}".
+- Always ask follow-up questions that probe depth, tradeoffs, and measurable outcomes.
+- Never invent experience beyond what is in the resume and job description.`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -124,13 +133,13 @@ export async function POST(req: NextRequest) {
 
     // 2. Parse request body
     const body = await req.json();
-    const { resume_id, job_description, track } = body;
+    const { resume_id, job_description, target_role, track } = body;
 
     if (!resume_id || !job_description) {
       return NextResponse.json({ error: "Missing required fields: resume_id or job_description" }, { status: 400 });
     }
 
-    const selectedTrack = track || "default";
+    const targetRole = String(target_role || track || "General Professional Role").trim();
 
     // 3. Fetch parsed resume text from Supabase
     const { data: resumeRecord, error: dbError } = await supabase
@@ -145,8 +154,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Resume not found or access denied" }, { status: 404 });
     }
 
-    // 4. Construct Gemini Persona Prompt
-    const personaPrompt = PERSONAS[selectedTrack] || PERSONAS.default;
+    // 4. Construct generalized Gemini persona prompt from frontend-provided role
+    const personaPrompt = buildGeneralPersonaPrompt(targetRole);
 
     // 5. Build context payload for Gemini Caching API
     const apiKey = process.env.GEMINI_API_KEY;
@@ -264,7 +273,7 @@ export async function POST(req: NextRequest) {
       .insert({
         user_id: user.id,
         resume_id: resumeRecord.id,
-        track: selectedTrack,
+        track: targetRole,
         gemini_cache_id: geminiCacheId,
         status: "ongoing"
       })
@@ -278,7 +287,7 @@ export async function POST(req: NextRequest) {
 
     console.info("[interview/start] token_counts", {
       model: cacheModel,
-      track: selectedTrack,
+      track: targetRole,
       resume_part_tokens: tokenBreakdown?.resumePartTokens ?? null,
       job_description_part_tokens: tokenBreakdown?.jobDescriptionPartTokens ?? null,
       persona_prompt_tokens: tokenBreakdown?.personaPromptTokens ?? null,
@@ -296,7 +305,7 @@ export async function POST(req: NextRequest) {
       cache_id: geminiCacheId,
       token_counts: {
         model: cacheModel,
-        track: selectedTrack,
+        track: targetRole,
         resume_part_tokens: tokenBreakdown?.resumePartTokens ?? null,
         job_description_part_tokens: tokenBreakdown?.jobDescriptionPartTokens ?? null,
         persona_prompt_tokens: tokenBreakdown?.personaPromptTokens ?? null,
