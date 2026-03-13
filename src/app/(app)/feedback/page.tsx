@@ -14,7 +14,8 @@ function FeedbackContent() {
   const [draftEmail, setDraftEmail] = useState("");
   const [isDrafting, setIsDrafting] = useState(false);
   const [evaluation, setEvaluation] = useState<any>(null);
-
+  const [name, setName] = React.useState<string>("Loading...");
+  
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -64,7 +65,26 @@ function FeedbackContent() {
     };
     checkUser();
   }, [supabase, router, searchParams]);
+  React.useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
 
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        setName(data.full_name);
+      }
+    };
+
+    fetchUser();
+  }, [supabase]);
+  
   const handleDraftEmail = async () => {
     setIsDrafting(true);
     const prompt = `Draft a professional, concise follow-up "Thank You" email to an interviewer for a Senior Frontend Engineer position. Mention that I enjoyed discussing React performance optimization and WebSockets. Keep it under 100 words.`;
@@ -97,7 +117,7 @@ function FeedbackContent() {
             <div className="absolute -right-10 -top-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-2xl"></div>
             <p className="body font-semibold text-zinc-400 mb-2">Overall Score</p>
             <div className="display text-white mb-2">{evaluation?.overallScore ?? '--'}</div>
-            <p className="text-emerald-400 font-medium bg-emerald-500/10 px-3 py-1 rounded-full text-sm">Great job, Alex!</p>
+            <p className="text-emerald-400 font-medium bg-emerald-500/10 px-3 py-1 rounded-full text-sm">Great job, {name}!</p>
           </div>
 
           {/* Breakdown Stats */}
