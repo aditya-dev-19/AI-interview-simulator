@@ -58,7 +58,7 @@ type QueuedAudioChunk = {
 const DEFAULT_OPTIONS: Required<LiveClientOptions> = {
   rmsThreshold: 0.015,
   silenceHangoverMs: 350,
-  chunkIntervalMs: 120,
+  chunkIntervalMs: 100,
 };
 
 function toBase64(bytes: Uint8Array): string {
@@ -69,43 +69,6 @@ function toBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...chunk);
   }
   return btoa(binary);
-}
-
-function downsampleTo16k(float32Data: Float32Array, inputSampleRate: number): Int16Array {
-  if (inputSampleRate === 16000) {
-    const sameRate = new Int16Array(float32Data.length);
-    for (let index = 0; index < float32Data.length; index++) {
-      const sample = Math.max(-1, Math.min(1, float32Data[index]));
-      sameRate[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-    }
-    return sameRate;
-  }
-
-  const sampleRateRatio = inputSampleRate / 16000;
-  const outputLength = Math.round(float32Data.length / sampleRateRatio);
-  const result = new Int16Array(outputLength);
-  let offsetResult = 0;
-  let offsetBuffer = 0;
-
-  while (offsetResult < result.length) {
-    const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
-    let accum = 0;
-    let count = 0;
-
-    for (let i = offsetBuffer; i < nextOffsetBuffer && i < float32Data.length; i++) {
-      accum += float32Data[i];
-      count++;
-    }
-
-    const sample = count > 0 ? accum / count : 0;
-    const clamped = Math.max(-1, Math.min(1, sample));
-    result[offsetResult] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
-
-    offsetResult++;
-    offsetBuffer = nextOffsetBuffer;
-  }
-
-  return result;
 }
 
 export class GeminiLiveClient {
@@ -413,16 +376,19 @@ export class GeminiLiveClient {
       processorOptions: { targetChunkMs: chunkIntervalMs },
     });
 
-    this.workletNode.port.onmessage = (event: MessageEvent<{ type: string; data: Float32Array }>) => {
-      if (event.data?.type !== 'audio') return;
-      const channelData = event.data.data;
+    this.workletNode.port.onmessage = (event: MessageEvent<{ type: string; data: Int16Array }>) => {
+      if (event.data?.type !== 'pcm16') return;
+      const pcm16 = event.data.data;
+
+      if (!pcm16 || pcm16.length === 0) return;
 
       // Client-side RMS tracking for isSpeaking state
       let sumSquares = 0;
-      for (let index = 0; index < channelData.length; index++) {
-        sumSquares += channelData[index] * channelData[index];
+      for (let index = 0; index < pcm16.length; index++) {
+        const sample = pcm16[index] / 0x8000;
+        sumSquares += sample * sample;
       }
-      const rms = Math.sqrt(sumSquares / channelData.length);
+      const rms = Math.sqrt(sumSquares / pcm16.length);
       const now = performance.now();
       if (rms >= vadThreshold) {
         this.lastSpeechAt = now;
@@ -431,8 +397,7 @@ export class GeminiLiveClient {
         this.isSpeaking = false;
       }
 
-      // Stream audio to Gemini — server VAD decides turns
-      const pcm16 = downsampleTo16k(channelData, this.audioContext?.sampleRate ?? 48000);
+      // Stream worklet-converted 16 kHz PCM to Gemini — server VAD decides turns.
       this.sendAudioChunk(pcm16);
     };
 
