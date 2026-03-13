@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
-const SYSTEM_PROMPT = `You are an expert technical recruiter and career coach. I am providing you with the full transcript of a candidate's interview, along with a list of 'Proctoring Flags' (moments they looked away from the camera or were distracted). 
+const SYSTEM_PROMPT = `You are an expert technical recruiter and career coach. I am providing you with the candidate's resume, the full transcript of their interview, along with a list of 'Proctoring Flags' (moments they looked away from the camera or were distracted). 
 
 Evaluate the candidate deeply. You must return your evaluation STRICTLY as a JSON object matching this exact structure, with no markdown formatting outside the JSON:
 {
@@ -43,7 +43,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required field: interview_id" }, { status: 400 });
     }
 
-    // 3. Fetch / use transcript
+    // 3. Fetch interview record to get resume_id
+    const { data: interview, error: interviewError } = await supabase
+      .from("interviews")
+      .select("resume_id")
+      .eq("id", interview_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (interviewError || !interview) {
+      return NextResponse.json({ error: "Interview not found" }, { status: 404 });
+    }
+
+    // 4. Fetch resume text if available
+    let resumeText = "No resume provided.";
+    if (interview.resume_id) {
+      const { data: resume, error: resumeError } = await supabase
+        .from("resumes")
+        .select("parsed_text")
+        .eq("id", interview.resume_id)
+        .single();
+
+      if (!resumeError && resume?.parsed_text) {
+        resumeText = resume.parsed_text;
+      }
+    }
+
+    // 5. Fetch / use transcript
     let formattedTranscript: string;
 
     if (inlineTranscript && Array.isArray(inlineTranscript) && inlineTranscript.length > 0) {
@@ -101,7 +127,7 @@ export async function POST(req: NextRequest) {
         {
           role: "user",
           parts: [
-            { text: `TRANSCRIPT:\n${formattedTranscript}\n\n---\n\nPROCTORING FLAGS:\n${formattedFlags}\n\nProvide the evaluation JSON.` }
+            { text: `RESUME:\n${resumeText}\n\n---\n\nTRANSCRIPT:\n${formattedTranscript}\n\n---\n\nPROCTORING FLAGS:\n${formattedFlags}\n\nProvide the evaluation JSON.` }
           ]
         }
       ],

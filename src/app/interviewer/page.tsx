@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Clock, Bot, User, AlertOctagon, ShieldCheck, MessageSquare, List, Mic, MicOff, CheckCircle2 } from 'lucide-react';
 import { createGeminiLiveClient, type GeminiLiveClient } from '@/lib/gemini';
@@ -15,7 +15,7 @@ type MicVadController = {
   listening: boolean;
 };
 
-export default function InterviewRoom() {
+function InterviewRoomContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const interviewId = searchParams.get('id');
@@ -712,5 +712,13 @@ export default function InterviewRoom() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function InterviewRoom() {
+  return (
+    <Suspense fallback={<div className="text-white p-10 flex items-center justify-center min-h-screen text-2xl animate-pulse">Initializing Interview Environment...</div>}>
+      <InterviewRoomContent />
+    </Suspense>
   );
 }

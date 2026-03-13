@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { callGemini } from '../../../lib/gemini';
 import { createClient } from '@/utils/supabase/client';
 import { SkillBar } from '@/components/ui/SkillBar';
 
-export default function FeedbackView() {
+function FeedbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -168,3 +168,12 @@ export default function FeedbackView() {
     </div>
   );
 }
+
+export default function FeedbackView() {
+  return (
+    <Suspense fallback={<div className="text-white p-10 flex items-center justify-center min-h-screen">Loading feedback...</div>}>
+      <FeedbackContent />
+    </Suspense>
+  );
+}
+

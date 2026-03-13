@@ -20,7 +20,8 @@ interface Session {
 export default function DashboardView() {
   const router = useRouter();
   const supabase = createClient();
-
+  const [name, setName] = React.useState<string>("Loading...");
+  
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [analysis, setAnalysis] = useState<any>(null);
@@ -34,7 +35,25 @@ export default function DashboardView() {
     };
     checkUser();
   }, [supabase, router]);
+  useEffect(() => {
+    const fetchUserName = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
 
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (!error && data) {
+        setName(data.full_name);
+      }
+    };
+
+    fetchUserName();
+  }, [supabase]);
   useEffect(() => {
     const fetchSessions = async () => {
       try {
@@ -60,7 +79,7 @@ export default function DashboardView() {
       {/* Header & Hero Action */}
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="h1 text-white mb-2">Welcome back, Alex.</h2>
+          <h2 className="h1 text-white mb-2">Welcome back, {name}.</h2>
           <p className="body text-zinc-400">Your interview readiness is up <span className="text-emerald-400 font-medium">12%</span> this week.</p>
         </div>
         <Link
