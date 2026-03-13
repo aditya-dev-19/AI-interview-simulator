@@ -31,7 +31,10 @@ export function ResumeRow({ id, name, date, active, onDelete }: ResumeRowProps) 
             Make Active
           </button>
         )}
-        <button className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors">
+        <button
+          onClick={() => onDelete(id)}
+          className="p-2 text-zinc-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
+        >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>

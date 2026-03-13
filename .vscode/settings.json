@@ -1,0 +1,17 @@
+{
+  "github.copilot.chat.mcp": {
+    "servers": {
+      "github": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": {
+          "GITHUB_PERSONAL_ACCESS_TOKEN": "${env:GITHUB_PERSONAL_ACCESS_TOKEN}"
+        }
+      },
+      "playwright": {
+        "command": "npx",
+        "args": ["-y", "@microsoft/playwright-mcp"]
+      }
+    }
+  }
+}

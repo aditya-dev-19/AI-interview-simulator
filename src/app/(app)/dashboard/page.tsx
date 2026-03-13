@@ -7,6 +7,7 @@ import { Play, Activity, BrainCircuit, TrendingDown, Lightbulb } from 'lucide-re
 import { SkillBar } from '@/components/ui/SkillBar';
 import { SessionRow } from '@/components/ui/SessionRow';
 import { createClient } from '@/utils/supabase/client';
+import { ReadinessChart } from '@/components/ui/ReadinessChart';
 
 interface Session {
   id: string
@@ -79,57 +80,7 @@ export default function DashboardView() {
             <Activity className="w-5 h-5 text-emerald-400" />
             Readiness Trend (Last 5 Sessions)
           </h3>
-          {(() => {
-            const chartData = [...sessions].slice(0, 5).reverse();
-            if (chartData.length === 0 && !loading) {
-              return <div className="h-48 flex items-center justify-center text-zinc-500 text-sm">No data for readiness trend.</div>;
-            }
-            if (chartData.length === 0 && loading) {
-               return <div className="h-48 flex items-center justify-center text-emerald-500 text-sm animate-pulse">Loading charts...</div>;
-            }
-            if (chartData.length === 1) {
-              chartData.unshift({ ...chartData[0], created_at: new Date(new Date(chartData[0].created_at).getTime() - 86400000).toISOString(), overall: chartData[0].overall });
-            }
-
-            const points = chartData.map((s, i) => {
-              const cx = (i / (chartData.length - 1)) * 100;
-              const cy = 100 - ((s.overall || 0) * 0.8) - 10;
-              return { cx, cy, score: s.overall || 0, date: s.created_at };
-            });
-
-            const pathD = "M " + points.map(p => `${p.cx},${p.cy}`).join(" L ");
-            const latestScore = points[points.length - 1]?.score || 0;
-
-            return (
-              <>
-                <div className="h-48 relative w-full flex items-end animate-in fade-in duration-1000">
-                  <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
-                    <path d={pathD} fill="none" stroke="#34d399" strokeWidth="3" className="drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                    {points.map((p, i) => (
-                      <circle
-                        key={i}
-                        cx={p.cx}
-                        cy={p.cy}
-                        r={i === points.length - 1 ? "4" : "3"}
-                        fill={i === points.length - 1 ? "#fff" : (p.score < 60 ? "#ef4444" : "#10b981")}
-                        className={i === points.length - 1 ? "drop-shadow-[0_0_5px_rgba(255,255,255,0.8)]" : (p.score < 60 ? "drop-shadow-[0_0_5px_rgba(239,68,68,0.8)]" : "")}
-                      />
-                    ))}
-                  </svg>
-                  <div className="absolute top-2 right-0 bg-emerald-500/20 text-emerald-300 caption font-bold px-2 py-1 rounded border border-emerald-500/30">
-                    Latest: {latestScore}/100
-                  </div>
-                </div>
-                <div className="flex justify-between caption text-zinc-500 mt-4">
-                  {points.map((p, i) => (
-                    <span key={i} className={i === points.length - 1 ? "text-emerald-400 font-bold" : (p.score < 60 ? "text-red-400 font-bold" : "")}>
-                      {i === points.length - 1 ? "Latest" : new Date(p.date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </span>
-                  ))}
-                </div>
-              </>
-            );
-          })()}
+            <ReadinessChart sessions={sessions} loading={loading} />
         </div>
 
         {/* Skill Radar / Breakdown */}

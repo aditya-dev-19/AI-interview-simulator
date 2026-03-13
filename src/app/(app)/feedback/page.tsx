@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, Lightbulb, Mail, Sparkles } from 'lucide-react';
 import { callGemini } from '../../../lib/gemini';
 import { createClient } from '@/utils/supabase/client';
+import { SkillBar } from '@/components/ui/SkillBar';
 
 export default function FeedbackView() {
   const router = useRouter();
@@ -101,21 +102,10 @@ export default function FeedbackView() {
 
           {/* Breakdown Stats */}
           <div className="col-span-2 bg-zinc-900/40 border border-zinc-800/60 rounded-2xl p-6 grid grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-zinc-400 mb-1">Technical Depth</p>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-2 bg-zinc-800 rounded-full"><div className="h-full bg-blue-500 rounded-full transition-all duration-1000" style={{ width: `${evaluation?.skillBreakdown?.technicalAccuracy || 0}%` }}></div></div>
-                  <span className="text-sm font-bold">{evaluation?.skillBreakdown?.technicalAccuracy || 0}%</span>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-zinc-400 mb-1">Communication</p>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-2 bg-zinc-800 rounded-full"><div className="h-full bg-purple-500 rounded-full transition-all duration-1000" style={{ width: `${evaluation?.skillBreakdown?.communicationClarity || 0}%` }}></div></div>
-                  <span className="text-sm font-bold">{evaluation?.skillBreakdown?.communicationClarity || 0}%</span>
-                </div>
-              </div>
+            <div className="space-y-5">
+              <SkillBar label="Technical Accuracy" percentage={evaluation?.skillBreakdown?.technicalAccuracy || 0} color="bg-blue-500" />
+              <SkillBar label="Communication Clarity" percentage={evaluation?.skillBreakdown?.communicationClarity || 0} color="bg-purple-500" />
+              <SkillBar label="Confidence Metrics" percentage={evaluation?.skillBreakdown?.confidenceMetrics || 0} color="bg-emerald-500" />
             </div>
 
             {/* Trust/Proctor Score */}

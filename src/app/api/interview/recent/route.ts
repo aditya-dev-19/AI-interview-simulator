@@ -21,15 +21,36 @@ export async function GET() {
     return NextResponse.json({ error: "Failed to fetch sessions" }, { status: 500 });
   }
 
-  const sessions = data.map((session: any) => {
-    const trustScore = Math.max(100 - session.flag_count * 10, 50);
+  // Fetch feedback_json so we can use confidenceMetrics as trustScore (matches feedback page)
+  const sessionIds = (data || []).map((s: any) => s.id);
+  const feedbackMap: Record<string, number | null> = {};
+
+  if (sessionIds.length > 0) {
+    const { data: feedbackRows } = await supabase
+      .from("interviews")
+      .select("id, feedback_json")
+      .in("id", sessionIds);
+
+    for (const row of feedbackRows || []) {
+      const confidence = row.feedback_json?.skillBreakdown?.confidenceMetrics;
+      feedbackMap[row.id] = typeof confidence === "number" ? confidence : null;
+    }
+  }
+
+  const sessions = (data || []).map((session: any) => {
+    // Prefer AI-evaluated confidenceMetrics (same value shown on feedback page),
+    // fall back to flag-count formula for sessions without completed evaluation
+    const trustScore =
+      feedbackMap[session.id] != null
+        ? feedbackMap[session.id]!
+        : Math.max(100 - session.flag_count * 10, 50);
 
     return {
       id: session.id,
       role: session.role,
       track: session.track,
       overallScore: session.overall_score,
-      overall: session.overall_score, // The UI expects `overall` in Dashboard Session interface
+      overall: session.overall_score,
       flagCount: session.flag_count,
       trustScore,
       status: session.status,
@@ -37,13 +58,13 @@ export async function GET() {
     };
   });
 
-  // Fetch the latest completed session to get the full JSON analytics
+  // Fetch the latest completed session for the full JSON analytics panel
   const { data: latestSessionData } = await supabase
-    .from('interviews')
-    .select('overall_score, feedback_json')
-    .eq('user_id', user.id)
-    .eq('status', 'completed')
-    .order('created_at', { ascending: false })
+    .from("interviews")
+    .select("overall_score, feedback_json")
+    .eq("user_id", user.id)
+    .eq("status", "completed")
+    .order("created_at", { ascending: false })
     .limit(1)
     .single();
 
@@ -53,4 +74,4 @@ export async function GET() {
   } : null;
 
   return NextResponse.json({ sessions, latestSession });
-}
+}

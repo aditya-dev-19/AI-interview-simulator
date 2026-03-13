@@ -98,10 +98,21 @@ export default function InterviewRoom() {
           }),
         });
 
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch (parseError) {
+          console.error("Proctor API response parse error:", parseError);
+          setLastProctorStatus('idle');
+          return;
+        }
 
         if (!res.ok) {
-          console.error("Proctor API error:", data);
+          console.error("Proctor API error:", {
+            status: res.status,
+            statusText: res.statusText,
+            data: data || 'No response data'
+          });
           setLastProctorStatus('idle');
           return;
         }
