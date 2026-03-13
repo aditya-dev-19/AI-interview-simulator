@@ -343,6 +343,26 @@ export default function InterviewRoom() {
     }, 3000);
   };
 
+  const handleEndSession = async () => {
+    if (!interviewId) return;
+    
+    // Disconnect resources first
+    vadRef.current?.pause();
+    void liveClientRef.current?.disconnect();
+
+    const res = await fetch("/api/interview/end", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ interview_id: interviewId })
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      router.push(`/feedback?data=${encodeURIComponent(JSON.stringify(data.evaluation))}`);
+    }
+  };
+
   return (
     <div className="absolute inset-0 flex flex-col bg-zinc-950 animate-in zoom-in-95 duration-300">
       {/* ON-SCREEN WARNING TOAST */}
@@ -397,7 +417,7 @@ export default function InterviewRoom() {
              liveStatus === 'connecting' ? 'Connecting…' :
              liveStatus === 'error' ? 'Mic Error' : 'Mic Off'}
           </div>
-          <button onClick={() => router.push('/feedback')} className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-zinc-700">
+          <button onClick={handleEndSession} className="bg-zinc-800 hover:bg-zinc-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors border border-zinc-700">
             End Session
           </button>
         </div>
@@ -632,19 +652,19 @@ export default function InterviewRoom() {
           <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6 border border-red-500/30">
             <AlertOctagon className="w-10 h-10 text-red-500 animate-pulse" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-4">Permissions Required</h2>
+          <h2 className="h1 text-white mb-4">Permissions Required</h2>
           <div className="text-zinc-400 max-w-md leading-relaxed space-y-4 mb-8">
-            <p>
+            <p className="body">
               To ensure a secure and interactive interview experience, both{" "}
               <span className="text-white font-semibold">camera</span> and{" "}
               <span className="text-white font-semibold">microphone</span> access are mandatory.
             </p>
 
-            <p>
+            <p className="body">
               Please enable camera and microphone access in your browser settings.
             </p>
 
-            <p className="text-sm text-zinc-500">
+            <p className="caption text-zinc-500">
               Audio and video recording will be used for proctoring purposes only.
             </p>
           </div>
@@ -670,7 +690,7 @@ export default function InterviewRoom() {
           >
             Grant Permissions & Retry
           </button>
-          <p className="mt-6 text-[10px] text-zinc-500 uppercase tracking-widest font-bold">
+          <p className="caption text-zinc-500 font-bold uppercase tracking-widest mt-6">
             Sarah AI is waiting for you
           </p>
         </div>

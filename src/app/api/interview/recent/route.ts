@@ -29,6 +29,7 @@ export async function GET() {
       role: session.role,
       track: session.track,
       overallScore: session.overall_score,
+      overall: session.overall_score, // The UI expects `overall` in Dashboard Session interface
       flagCount: session.flag_count,
       trustScore,
       status: session.status,
@@ -36,5 +37,20 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ sessions });
+  // Fetch the latest completed session to get the full JSON analytics
+  const { data: latestSessionData } = await supabase
+    .from('interviews')
+    .select('overall_score, feedback_json')
+    .eq('user_id', user.id)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  const latestSession = latestSessionData ? {
+    overallScore: latestSessionData.overall_score,
+    feedback_json: latestSessionData.feedback_json
+  } : null;
+
+  return NextResponse.json({ sessions, latestSession });
 }
