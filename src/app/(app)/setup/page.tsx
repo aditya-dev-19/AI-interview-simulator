@@ -15,13 +15,13 @@ interface Resume {
 export default function SetupView() {
   const router = useRouter();
   const supabase = createClient();
-  
+
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
   const [track, setTrack] = useState("software");
-  
+
   const [isLoadingResumes, setIsLoadingResumes] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -126,7 +126,7 @@ export default function SetupView() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-[#0c0c0e] border border-zinc-800/80 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-4 border-b border-zinc-800/80">
-              <h3 className="text-white font-semibold">{errorHeader}</h3>
+              <h3 className="h3 text-white">{errorHeader}</h3>
               <button onClick={() => setShowError(false)} className="text-zinc-500 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -135,8 +135,7 @@ export default function SetupView() {
               <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center border border-red-500/20 mb-2">
                 <AlertCircle className="w-8 h-8 text-red-500" />
               </div>
-              <p className="text-zinc-300 font-medium leading-snug">{errorMessage}</p>
-              <p className="text-zinc-300 font-medium leading-snug">{errorMessage}</p>
+              <p className="body font-medium text-zinc-300 leading-snug">{errorMessage}</p>
             </div>
             <div className="p-4 border-t border-zinc-800/80 flex justify-end">
               <button
@@ -151,55 +150,54 @@ export default function SetupView() {
       )}
 
       <div>
-        <h2 className="text-3xl font-bold text-white mb-2">Configure Your Session</h2>
-        <p className="text-zinc-400">Provide context so the AI can tailor the interview questions accurately.</p>
+        <h2 className="h1 text-white mb-2">Configure Your Session</h2>
+        <p className="body text-zinc-400">Provide context so the AI can tailor the interview questions accurately.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Left Column: Resume & Track Select */}
         <div className="space-y-6">
           <div className="space-y-4">
-            <label className="text-sm font-semibold text-zinc-300">1. Select Target Resume</label>
+            <label className="body font-semibold text-zinc-300">1. Select Target Resume</label>
             <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
               {isLoadingResumes ? (
                 <div className="flex flex-col items-center justify-center p-8 border border-zinc-800 rounded-xl bg-zinc-900/20">
                   <Loader2 className="w-6 h-6 text-emerald-500 animate-spin mb-2" />
-                  <p className="text-xs text-zinc-500">Loading resumes...</p>
+                  <p className="caption text-zinc-500">Loading resumes...</p>
                 </div>
               ) : resumes.length === 0 ? (
                 <div className="p-6 border border-zinc-800 rounded-xl bg-zinc-900/20 text-center">
-                  <p className="text-sm text-zinc-400 mb-3">No resumes found.</p>
-                  <button 
+                  <p className="body text-zinc-400 mb-3">No resumes found.</p>
+                  <button
                     onClick={() => router.push('/uploadresume')}
-                    className="text-xs text-emerald-500 hover:underline font-medium"
+                    className="body font-medium text-emerald-500 hover:underline"
                   >
                     Upload your first resume
                   </button>
                 </div>
               ) : (
                 resumes.map((resume) => (
-                  <label 
+                  <label
                     key={resume.id}
-                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer ${
-                      selectedResumeId === resume.id 
-                        ? 'border-emerald-500/50 bg-emerald-500/5' 
-                        : 'border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/50'
-                    }`}
+                    className={`flex items-center gap-4 p-4 rounded-xl border transition-all cursor-pointer ${selectedResumeId === resume.id
+                      ? 'border-emerald-500/50 bg-emerald-500/5'
+                      : 'border-zinc-800 bg-zinc-900/40 hover:bg-zinc-800/50'
+                      }`}
                   >
-                    <input 
-                      type="radio" 
-                      name="resume" 
+                    <input
+                      type="radio"
+                      name="resume"
                       checked={selectedResumeId === resume.id}
                       onChange={() => setSelectedResumeId(resume.id)}
-                      className="text-emerald-500 focus:ring-emerald-500 bg-zinc-900 border-zinc-700" 
+                      className="text-emerald-500 focus:ring-emerald-500 bg-zinc-900 border-zinc-700"
                     />
                     <div className="flex items-center gap-3">
                       <FileText className={`w-5 h-5 ${selectedResumeId === resume.id ? 'text-emerald-400' : 'text-zinc-400'}`} />
                       <div>
-                        <p className={`text-sm font-medium ${selectedResumeId === resume.id ? 'text-white' : 'text-zinc-300'}`}>
+                        <p className={`body font-medium ${selectedResumeId === resume.id ? 'text-white' : 'text-zinc-300'}`}>
                           {resume.file_name}
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="caption text-zinc-500">
                           {new Date(resume.uploaded_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -211,17 +209,16 @@ export default function SetupView() {
           </div>
 
           <div className="space-y-3">
-            <label className="text-sm font-semibold text-zinc-300">2. Select Interview Track</label>
+            <label className="body font-semibold text-zinc-300">2. Select Interview Track</label>
             <div className="grid grid-cols-2 gap-2">
               {['software', 'cyber', 'data', 'hr'].map((t) => (
                 <button
                   key={t}
                   onClick={() => setTrack(t)}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold capitalize transition-all border ${
-                    track === t 
-                      ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]' 
-                      : 'bg-zinc-900/50 border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                  }`}
+                  className={`px-4 py-2 rounded-lg text-xs font-semibold capitalize transition-all border ${track === t
+                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]'
+                    : 'bg-zinc-900/50 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                    }`}
                 >
                   {t === 'hr' ? 'Behavioral (HR)' : `${t} Engineer`}
                 </button>
@@ -234,8 +231,8 @@ export default function SetupView() {
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between">
-              <label className="text-sm font-semibold text-zinc-300">Target Role Title (Optional)</label>
-              <span className={`text-[10px] ${jobTitle.length >= 50 ? 'text-red-500' : 'text-zinc-500'}`}>
+              <label className="body font-semibold text-zinc-300">Target Role Title (Optional)</label>
+              <span className={`caption ${jobTitle.length >= 50 ? 'text-red-500' : 'text-zinc-500'}`}>
                 {jobTitle.length}/50
               </span>
             </div>
@@ -249,7 +246,7 @@ export default function SetupView() {
             />
           </div>
 
-          <label className="text-sm font-semibold text-zinc-300 flex justify-between items-center mt-4">
+          <label className="body font-semibold text-zinc-300 flex justify-between items-center mt-4">
             <span>3. Paste Job Description</span>
             <button
               onClick={handleGenerateJD}
@@ -270,15 +267,15 @@ export default function SetupView() {
       </div>
 
       <div className="flex items-center justify-end gap-4 pt-6 border-t border-zinc-800/60">
-        <button 
-          onClick={() => router.push('/dashboard')} 
+        <button
+          onClick={() => router.push('/dashboard')}
           disabled={isStarting}
           className="px-6 py-2.5 rounded-xl font-medium text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
         >
           Cancel
         </button>
-        <button 
-          onClick={handleBeginInterview} 
+        <button
+          onClick={handleBeginInterview}
           disabled={isStarting || isLoadingResumes}
           className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 px-8 py-2.5 rounded-xl font-bold transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
