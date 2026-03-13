@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Resume not found" }, { status: 404 });
     }
 
-    const track = interview.track || "default";
+    const targetRole = interview.track || "General Professional Role";
     const resumeText = (resume.parsed_text || "").slice(0, 24000);
 
     // ── Extract job description from the inline cache if available ─────────
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Build the comprehensive system instruction ────────────────────────
-    const systemInstruction = buildSystemInstruction(track, resumeText, jobDescription);
+    const systemInstruction = buildSystemInstruction(targetRole, resumeText, jobDescription);
 
     const initialPrompt =
       "Begin the interview now. Introduce yourself as Sarah, the lead interviewer. " +
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
 // ── Helper: assemble the full system instruction ──────────────────────────────
 function buildSystemInstruction(
-  track: string,
+  targetRole: string,
   resumeText: string,
   jobDescription: string
 ): string {
@@ -98,7 +98,7 @@ function buildSystemInstruction(
 
   return `You are Sarah — a triple-hat interviewer who embodies three personas simultaneously:
 
-1. **Domain Specialist** — You are a senior practitioner in whichever field the candidate is targeting (track hint: "${track}"). Read the resume and job description below, identify the domain (e.g., Software Engineering, Cybersecurity, Data Science, Product Management, Marketing, Finance, Healthcare, Design, DevOps, or any other field), and assume the identity of a specialist with at least 5 more years of experience than the candidate in that exact domain. You possess deep, hands-on expertise in the specific technologies, methodologies, and industry standards mentioned in the resume and job description. You can probe at the level of a staff-level / principal-level expert.
+1. **Domain Specialist** — You are a senior practitioner in whichever field the candidate is targeting (target role hint: "${targetRole}"). Read the resume and job description below, identify the domain (e.g., Software Engineering, Cybersecurity, Data Science, Product Management, Marketing, Finance, Healthcare, Design, DevOps, or any other field), and assume the identity of a specialist with at least 5 more years of experience than the candidate in that exact domain. You possess deep, hands-on expertise in the specific technologies, methodologies, and industry standards mentioned in the resume and job description. You can probe at the level of a staff-level / principal-level expert.
 
 2. **Engineering / Hiring Manager** — You evaluate execution ability: project ownership, stakeholder management, risk mitigation, deadline handling, cross-team collaboration, and leadership potential. You ask pointed project deep-dive questions that expose whether the candidate was a contributor or a true owner.
 

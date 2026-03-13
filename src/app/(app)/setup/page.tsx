@@ -20,7 +20,6 @@ export default function SetupView() {
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [jobTitle, setJobTitle] = useState("");
   const [jobDescription, setJobDescription] = useState("");
-  const [track, setTrack] = useState("software");
 
   const [isLoadingResumes, setIsLoadingResumes] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -78,6 +77,13 @@ export default function SetupView() {
       return;
     }
 
+    if (!jobTitle || jobTitle.trim() === "") {
+      setErrorHeader("Missing Target Role");
+      setErrorMessage("Please enter the target role title so the interviewer persona can adapt correctly.");
+      setShowError(true);
+      return;
+    }
+
     setIsStarting(true);
     try {
       const response = await fetch('/api/interview/start', {
@@ -86,7 +92,7 @@ export default function SetupView() {
         body: JSON.stringify({
           resume_id: selectedResumeId,
           job_description: jobDescription,
-          track: track
+          target_role: jobTitle.trim()
         })
       });
 
@@ -209,21 +215,10 @@ export default function SetupView() {
           </div>
 
           <div className="space-y-3">
-            <label className="body font-semibold text-zinc-300">2. Select Interview Track</label>
-            <div className="grid grid-cols-2 gap-2">
-              {['software', 'cyber', 'data', 'hr'].map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTrack(t)}
-                  className={`px-4 py-2 rounded-lg text-xs font-semibold capitalize transition-all border ${track === t
-                    ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.1)]'
-                    : 'bg-zinc-900/50 border-zinc-800 text-zinc-500 hover:text-zinc-300'
-                    }`}
-                >
-                  {t === 'hr' ? 'Behavioral (HR)' : `${t} Engineer`}
-                </button>
-              ))}
-            </div>
+            <label className="body font-semibold text-zinc-300">2. Target Role Persona</label>
+            <p className="caption text-zinc-500">
+              The AI interviewer will automatically adapt its persona using the target role title you provide.
+            </p>
           </div>
         </div>
 
@@ -231,7 +226,7 @@ export default function SetupView() {
         <div className="space-y-4">
           <div className="space-y-2">
             <div className="flex justify-between">
-              <label className="body font-semibold text-zinc-300">Target Role Title (Optional)</label>
+              <label className="body font-semibold text-zinc-300">Target Role Title</label>
               <span className={`caption ${jobTitle.length >= 50 ? 'text-red-500' : 'text-zinc-500'}`}>
                 {jobTitle.length}/50
               </span>
