@@ -192,6 +192,7 @@ export default function DashboardView() {
             return (
               <SessionRow
                 key={session.id}
+                sessionId={session.id}
                 role={session.role}
                 date={date}
                 score={session.overall}

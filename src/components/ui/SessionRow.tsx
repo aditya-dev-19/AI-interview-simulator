@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { LayoutDashboard, AlertOctagon, Eye, ChevronRight } from 'lucide-react';
 
 interface SessionRowProps {
@@ -7,11 +8,12 @@ interface SessionRowProps {
   score: number;
   trust: number;
   flagged?: boolean;
+  sessionId: string;
 }
 
-export function SessionRow({ role, date, score, trust, flagged }: SessionRowProps) {
+export function SessionRow({ role, date, score, trust, flagged, sessionId }: SessionRowProps) {
   return (
-    <div className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-xl border border-zinc-800/80 hover:bg-zinc-800/50 transition-colors group cursor-pointer">
+    <Link href={`/feedback?id=${sessionId}`} className="flex items-center justify-between p-4 bg-zinc-900/50 rounded-xl border border-zinc-800/80 hover:bg-zinc-800/50 transition-colors group cursor-pointer">
       <div className="flex items-center gap-4">
         <div className="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:text-emerald-400 transition-colors">
           <LayoutDashboard className="w-5 h-5" />
@@ -35,6 +37,6 @@ export function SessionRow({ role, date, score, trust, flagged }: SessionRowProp
         </div>
         <ChevronRight className="w-5 h-5 text-zinc-600 group-hover:text-emerald-400 transition-colors" />
       </div>
-    </div>
+    </Link>
   );
 }

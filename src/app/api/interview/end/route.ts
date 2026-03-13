@@ -37,22 +37,36 @@ export async function POST(req: NextRequest) {
 
     // 2. Parse request body
     const body = await req.json();
-    const { interview_id } = body;
+    const { interview_id, transcript: inlineTranscript } = body;
 
     if (!interview_id) {
       return NextResponse.json({ error: "Missing required field: interview_id" }, { status: 400 });
     }
 
-    // 3. Fetch Data (Transcripts and Proctoring Flags)
-    const { data: transcripts, error: transcriptsError } = await supabase
-      .from("transcripts")
-      .select("role, content")
-      .eq("interview_id", interview_id)
-      .order("created_at", { ascending: true });
+    // 3. Fetch / use transcript
+    let formattedTranscript: string;
 
-    if (transcriptsError) {
-      console.error("Error fetching transcripts:", transcriptsError);
-      return NextResponse.json({ error: "Failed to fetch transcripts" }, { status: 500 });
+    if (inlineTranscript && Array.isArray(inlineTranscript) && inlineTranscript.length > 0) {
+      // Use the live in-memory transcript passed directly from the browser
+      formattedTranscript = inlineTranscript
+        .map((t: { role: string; content: string }) => `${t.role.toUpperCase()}: ${t.content}`)
+        .join("\n\n");
+    } else {
+      // Fall back to DB (old REST-based interview flow)
+      const { data: transcripts, error: transcriptsError } = await supabase
+        .from("transcripts")
+        .select("role, content")
+        .eq("interview_id", interview_id)
+        .order("created_at", { ascending: true });
+
+      if (transcriptsError) {
+        console.error("Error fetching transcripts:", transcriptsError);
+        return NextResponse.json({ error: "Failed to fetch transcripts" }, { status: 500 });
+      }
+
+      formattedTranscript = (transcripts || [])
+        .map((t) => `${t.role.toUpperCase()}: ${t.content}`)
+        .join("\n\n");
     }
 
     const { data: flags, error: flagsError } = await supabase
@@ -65,11 +79,6 @@ export async function POST(req: NextRequest) {
       console.error("Error fetching proctoring flags:", flagsError);
       return NextResponse.json({ error: "Failed to fetch proctoring flags" }, { status: 500 });
     }
-
-    // Format Transcript
-    const formattedTranscript = (transcripts || [])
-      .map((t) => `${t.role.toUpperCase()}: ${t.content}`)
-      .join("\n\n");
 
     // Format Proctoring Flags
     let formattedFlags = "No proctoring flags recorded.";

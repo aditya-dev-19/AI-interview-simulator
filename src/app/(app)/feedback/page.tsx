@@ -23,16 +23,31 @@ export default function FeedbackView() {
       }
 
       const dataParam = searchParams.get("data");
+      const idParam = searchParams.get("id");
 
       if (dataParam) {
+        // Fresh evaluation passed inline (just finished interview)
         try {
           const parsed = JSON.parse(decodeURIComponent(dataParam));
           setEvaluation(parsed);
         } catch (err) {
           console.error("Failed to parse evaluation data", err);
         }
-      } else {
+      } else if (idParam) {
+        // Load a specific past session by interview ID
         const { data, error } = await supabase
+          .from("interviews")
+          .select("overall_score, feedback_json")
+          .eq("id", idParam)
+          .eq("user_id", user.id)
+          .single();
+
+        if (!error && data?.feedback_json) {
+          setEvaluation(data.feedback_json);
+        }
+      } else {
+        // Fall back to most recent completed session
+        const { data } = await supabase
           .from("interviews")
           .select("overall_score, feedback_json")
           .eq("user_id", user.id)

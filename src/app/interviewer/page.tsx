@@ -353,7 +353,12 @@ export default function InterviewRoom() {
     const res = await fetch("/api/interview/end", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ interview_id: interviewId })
+      body: JSON.stringify({
+        interview_id: interviewId,
+        transcript: chatHistory
+          .filter(m => m.text?.trim())
+          .map(m => ({ role: m.role === 'ai' ? 'ai' : 'user', content: m.text.trim() }))
+      })
     });
 
     const data = await res.json();
