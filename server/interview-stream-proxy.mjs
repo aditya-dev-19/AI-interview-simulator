@@ -14,7 +14,7 @@ try {
 const PROXY_PORT = Number(process.env.INTERVIEW_STREAM_PROXY_PORT || 8081);
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_LIVE_MODEL =
-  process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash';
+  process.env.GEMINI_LIVE_MODEL || 'gemini-2.5-flash-native-audio-preview-12-2025';
 const GEMINI_WS_BASE =
   'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent';
 
@@ -65,7 +65,7 @@ async function createGeminiSocket({ tag, systemInstruction }) {
       model: `models/${GEMINI_LIVE_MODEL}`,
       systemInstruction: {
         role: 'user',
-        parts: [{ text: systemInstruction ?? '' }],
+        parts: [{ text: (systemInstruction ?? '') + '\n\nTRANSCRIPTION RULE: Always transcribe the candidate\'s speech into English, even if they speak in another language. Render all input transcriptions in English.' }],
       },
       generationConfig: {
         responseModalities: ['AUDIO'],
@@ -73,8 +73,8 @@ async function createGeminiSocket({ tag, systemInstruction }) {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } },
         },
       },
-      inputAudioTranscription: { languageCode: 'en-US' },
-      outputAudioTranscription: { languageCode: 'en-US' },
+      inputAudioTranscription: {},
+      outputAudioTranscription: {},
       realtimeInputConfig: {
         activityHandling: 'START_OF_ACTIVITY_INTERRUPTS',
         turnCoverage: 'TURN_INCLUDES_ONLY_ACTIVITY',
@@ -89,28 +89,39 @@ async function createGeminiSocket({ tag, systemInstruction }) {
 
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Gemini setupComplete timeout (10s)')), 10000);
+    const cleanup = () => {
+      clearTimeout(timeout);
+      geminiSocket.off('message', onMsg);
+      geminiSocket.off('close', onClose);
+    };
+    const onClose = (code, reason) => {
+      cleanup();
+      console.error(`${tag} ❌ Gemini WS closed during setup: code=${code} reason=${reason?.toString()}`);
+      reject(new Error(`Gemini WS closed during setup (code ${code})`));
+    };
     const onMsg = (data) => {
       try {
         const msg = JSON.parse(typeof data === 'string' ? data : data.toString());
         if (msg?.setupComplete !== undefined) {
-          clearTimeout(timeout);
-          geminiSocket.off('message', onMsg);
+          cleanup();
           console.log(`${tag} ✅ Gemini setupComplete received`);
           resolve();
         } else if (msg?.error) {
           console.error(`${tag} ❌ Gemini setup error:`, JSON.stringify(msg.error, null, 2));
-          clearTimeout(timeout);
+          cleanup();
           reject(new Error(`Gemini setup error: ${msg.error.message || 'Unknown error'}`));
         } else {
-          console.debug(`${tag} ℹ Gemini message during setup:`, typeof msg === 'object' ? Object.keys(msg) : msg);
+          console.log(`${tag} ℹ Gemini msg during setup (keys: ${typeof msg === 'object' ? Object.keys(msg).join(',') : msg})`);
         }
       } catch (err) { 
-        console.warn(`${tag} ⚠ Non-JSON frame during setup:`, data.toString().slice(0, 100));
+        const raw = (typeof data === 'string' ? data : data.toString()).slice(0, 200);
+        console.warn(`${tag} ⚠ Non-JSON frame during setup raw:`, raw);
       }
     };
+    geminiSocket.on('close', onClose);
+    geminiSocket.on('message', onMsg);
     console.log(`${tag} → sending setup frame`);
     geminiSocket.send(JSON.stringify(setupMessage));
-    geminiSocket.on('message', onMsg);
   });
 
   return geminiSocket;
